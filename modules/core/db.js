@@ -265,6 +265,8 @@
     db = new SQL.Database();
     await applySchema();
     await seedIfEmpty();
+    runMigrations();
+    await persist();
     global.dbInstance = db;
     EventBus.emit('db:reset', {});
   }
