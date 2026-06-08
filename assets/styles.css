@@ -806,7 +806,18 @@ h3, .h3 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 0; }
   .app-shell { display: block; }
   .content { padding: 0; max-width: 80mm; margin: 0; }
   body { background: #fff; color: #000; }
+  /* Receipt: show only this, full-bleed at 80mm */
+  body * { visibility: hidden !important; }
+  .receipt, .receipt * { visibility: visible !important; }
+  .modal-backdrop { position: static !important; background: none !important; padding: 0 !important; display: block !important; }
+  .modal { position: static !important; box-shadow: none !important; max-width: 80mm !important; max-height: none !important; overflow: visible !important; animation: none !important; border-radius: 0 !important; }
+  .receipt { width: 80mm; }
+  @page { size: 80mm auto; margin: 0; }
 }
+
+/* Big text mode */
+html.big-text { font-size: 17.5px; } /* 14 * 1.25 ≈ 17.5 */
+html.big-text body { font-size: 17.5px; }
 
 /* ============================================================================
    Utility
