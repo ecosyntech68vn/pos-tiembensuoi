@@ -8,10 +8,23 @@
   const DB_NAME = 'ecosyntech-pos';
   const STORE = 'sqlite';
   const KEY = 'main.db';
-  const SCHEMA_URL = 'modules/core/db-schema.sql';
-  const SEED_MENU_URL = 'seed/sample-menu.json';
-  const SEED_INGR_URL = 'seed/sample-ingredients.json';
-  const SEED_RECIPES_URL = 'seed/sample-recipes.json';
+  // Auto-detect base URL from db.js script location (works from any HTML, any folder)
+  const BASE_PATH = (function () {
+    try {
+      const scripts = document.getElementsByTagName('script');
+      for (let i = 0; i < scripts.length; i++) {
+        const src = scripts[i].src || '';
+        if (src.indexOf('/modules/core/db.js') >= 0) {
+          return new URL('../../', src).href;
+        }
+      }
+    } catch (e) { /* ignore */ }
+    return ''; // fallback: relative
+  })();
+  const SCHEMA_URL       = BASE_PATH + 'modules/core/db-schema.sql';
+  const SEED_MENU_URL    = BASE_PATH + 'seed/sample-menu.json';
+  const SEED_INGR_URL    = BASE_PATH + 'seed/sample-ingredients.json';
+  const SEED_RECIPES_URL = BASE_PATH + 'seed/sample-recipes.json';
 
   let SQL = null;       // sql.js module
   let db = null;        // Database instance
