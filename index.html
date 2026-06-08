@@ -47,6 +47,7 @@
   <script src="modules/sync/gas-client.js"></script>
   <script src="modules/sync/sync-queue.js"></script>
   <script src="modules/sync/telegram-bot.js"></script>
+  <script src="modules/sync/kiotviet-pull.js"></script>
 </head>
 <body>
   <div x-data="posApp()" x-init="boot()" x-cloak>
@@ -91,8 +92,52 @@
             <button @click="submitPin()" class="pin-key primary">OK</button>
           </div>
           <div class="login-error" x-text="loginError"></div>
-          <div class="text-center text-xs text-subtle" style="margin-top: 12px;">
-            Mặc định: Chủ <b>1234</b> · NV <b>5678</b> — đổi ngay sau lần đầu
+
+          <!-- Demo hint: chỉ hiện khi URL có ?demo=1 (KHÔNG hiện production) -->
+          <div x-show="isDemoMode" class="text-center text-xs"
+               style="margin-top: 12px; padding: 8px; background: var(--primary-light); border-radius: 6px; color: var(--text-secondary);">
+            🎬 Demo: Chủ <b>1234</b> · NV <b>5678</b> — không phải PIN thật của quán
+          </div>
+
+          <!-- Production hint: nhắc liên hệ chủ nếu quên PIN -->
+          <div x-show="!isDemoMode" class="text-center text-xs text-subtle" style="margin-top: 12px;">
+            Quên PIN? Liên hệ chủ quán để được cấp lại.
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ============ FIRST-RUN MODAL: FORCE đổi PIN chủ quán ============ -->
+    <template x-if="firstRunPinModal">
+      <div class="modal-backdrop" style="z-index: 9999;">
+        <div class="modal" style="max-width: 440px;">
+          <div class="modal-head">
+            <h3>🔐 Lần đầu sử dụng — Đặt PIN chủ quán</h3>
+          </div>
+          <div class="modal-body">
+            <div class="text-sm text-muted" style="margin-bottom: 16px;">
+              Vì lý do bảo mật, bạn <b>phải đổi PIN mặc định</b> trước khi dùng phần mềm thật.
+              PIN này dùng để đăng nhập tài khoản <b>Chủ quán</b>.
+            </div>
+            <div class="field">
+              <div class="label text-sm">PIN mới (4 số)</div>
+              <input type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
+                     class="input num" style="font-size: 24px; letter-spacing: 8px; text-align: center;"
+                     x-model="firstRunPin.new" placeholder="••••" />
+            </div>
+            <div class="field">
+              <div class="label text-sm">Xác nhận PIN mới</div>
+              <input type="password" inputmode="numeric" maxlength="4" pattern="[0-9]{4}"
+                     class="input num" style="font-size: 24px; letter-spacing: 8px; text-align: center;"
+                     x-model="firstRunPin.confirm" placeholder="••••" />
+            </div>
+            <div class="text-xs text-danger" x-show="firstRunPin.error" x-text="firstRunPin.error"></div>
+            <div class="text-xs text-muted" style="margin-top: 8px;">
+              ⚠ Ghi nhớ PIN này. Mất PIN chủ = phải reset toàn bộ dữ liệu.
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-primary" @click="submitFirstRunPin()">Đặt PIN & tiếp tục</button>
           </div>
         </div>
       </div>
@@ -423,8 +468,17 @@
 
                 <!-- Step 2 -->
                 <div x-show="impStep===2">
-                  <div class="text-sm" style="margin-bottom: 12px;">
-                    Đã đọc <b class="num" x-text="impRows.length"></b> dòng, <b class="num" x-text="impHeaders.length"></b> cột.
+                  <!-- Empty state: file parse rỗng -->
+                  <div x-show="impRows.length === 0" class="empty-state" style="padding: 24px 0;">
+                    <div style="font-size: 40px; opacity: 0.4;">📭</div>
+                    <div class="empty-title" style="margin-top: 8px;">File không có dữ liệu</div>
+                    <div class="empty-desc text-sm text-muted">CSV trống hoặc chỉ có dòng header. Vui lòng kiểm tra file và tải lại.</div>
+                    <button class="btn btn-ghost btn-sm" style="margin-top: 12px;" @click="impReset(); impStep=1">← Chọn file khác</button>
+                  </div>
+
+                  <!-- Có data: hiện thông tin reactive -->
+                  <div x-show="impRows.length > 0" class="text-sm" style="margin-bottom: 12px;">
+                    ✅ Đã đọc <b class="num" x-text="impRows.length"></b> dòng, <b class="num" x-text="impHeaders.length"></b> cột.
                   </div>
                   <div class="field">
                     <div class="label">POS phát hiện:</div>
@@ -489,8 +543,19 @@
 
                 <!-- Step 4 -->
                 <div x-show="impStep===4">
-                  <div class="text-sm" style="margin-bottom: 8px;">Sẽ import: <b class="num" x-text="impOrders.length"></b> đơn (<b class="num" x-text="impItemCount"></b> items)</div>
-                  <div class="text-sm" style="margin-bottom: 12px;">Trùng <b class="num" x-text="impDuplicates"></b> đơn — sẽ bỏ qua.</div>
+                  <!-- Empty state: không có đơn hợp lệ -->
+                  <div x-show="impOrders.length === 0" class="empty-state" style="padding: 24px 0;">
+                    <div style="font-size: 40px; opacity: 0.4;">⚠️</div>
+                    <div class="empty-title" style="margin-top: 8px;">Không có đơn hợp lệ</div>
+                    <div class="empty-desc text-sm text-muted">Có thể map cột chưa đúng (thiếu Mã đơn / Sản phẩm) hoặc tất cả đơn đều trùng.</div>
+                    <button class="btn btn-ghost btn-sm" style="margin-top: 12px;" @click="impStep=3">← Quay lại map cột</button>
+                  </div>
+
+                  <!-- Có đơn: hiện summary reactive -->
+                  <div x-show="impOrders.length > 0">
+                    <div class="text-sm" style="margin-bottom: 8px;">📋 Sẽ import: <b class="num" x-text="impOrders.length"></b> đơn (<b class="num" x-text="impItemCount"></b> items)</div>
+                    <div class="text-sm" style="margin-bottom: 12px;" x-show="impDuplicates > 0">⏭ Trùng <b class="num" x-text="impDuplicates"></b> đơn — sẽ bỏ qua.</div>
+                  </div>
                   <div x-show="impIssues.length > 0" style="margin-bottom: 12px;">
                     <div class="text-warning" style="font-weight: 600;">Cảnh báo:</div>
                     <ul class="text-xs text-muted" style="margin: 4px 0 0 18px;">
@@ -591,7 +656,10 @@
                     <h3>🔥 Đang làm</h3>
                     <span class="pill info num" x-text="kitchen.preparing.length"></span>
                   </div>
-                  <div x-show="kitchen.preparing.length===0" class="text-xs text-subtle" style="text-align: center; padding: 12px 0;">— trống —</div>
+                  <div x-show="kitchen.preparing.length===0" class="text-xs text-subtle" style="text-align: center; padding: 16px 0;">
+                    <div style="font-size: 24px; opacity: 0.3;">🧑‍🍳</div>
+                    <div style="margin-top: 4px;">Chưa có đơn đang chế biến</div>
+                  </div>
                   <template x-for="o in kitchen.preparing" :key="o.id">
                     <div class="card card-tight" style="margin-bottom: 8px; border-left: 3px solid var(--info);">
                       <div style="display: flex; justify-content: space-between; align-items: start;">
@@ -627,7 +695,10 @@
                     <h3>✅ Sẵn sàng</h3>
                     <span class="pill success num" x-text="kitchen.ready.length"></span>
                   </div>
-                  <div x-show="kitchen.ready.length===0" class="text-xs text-subtle" style="text-align: center; padding: 12px 0;">— trống —</div>
+                  <div x-show="kitchen.ready.length===0" class="text-xs text-subtle" style="text-align: center; padding: 16px 0;">
+                    <div style="font-size: 24px; opacity: 0.3;">✨</div>
+                    <div style="margin-top: 4px;">Chưa có đơn sẵn sàng</div>
+                  </div>
                   <template x-for="o in kitchen.ready" :key="o.id">
                     <div class="card card-tight" style="margin-bottom: 8px; border-left: 3px solid var(--success); background: var(--primary-light);">
                       <div style="display: flex; justify-content: space-between; align-items: start;">
@@ -1080,6 +1151,112 @@
                   <button class="btn btn-ghost btn-sm" @click="syncNow()">Đồng bộ ngay</button>
                 </div>
                 <div class="text-xs text-muted" style="margin-top: 8px;" x-text="gasMsg"></div>
+              </div>
+
+              <!-- KiotViet Integration (V2.5) -->
+              <div class="card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 12px;">🔗 Tích hợp KiotViet</h3>
+                <div class="text-xs text-muted" style="margin-bottom: 12px;">
+                  Đồng bộ đơn từ KiotViet sang POS Cafe. Chọn 1 trong 2 phương án.
+                </div>
+
+                <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:12px;">
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="radio" value="csv" x-model="kvCfg.mode" />
+                    <span class="text-sm"><b>CSV daily</b> (miễn phí — upload thủ công 1 lần/ngày)</span>
+                  </label>
+                  <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                    <input type="radio" value="webhook" x-model="kvCfg.mode" />
+                    <span class="text-sm"><b>Webhook realtime</b> (Premium — tự động)</span>
+                  </label>
+                </div>
+
+                <template x-if="kvCfg.mode === 'csv'">
+                  <div class="text-xs text-muted" style="background:#f4f6f8; padding:10px; border-radius:6px;">
+                    👉 Mở tab <b>Import CSV</b> → kéo-thả file KiotViet xuất Excel/CSV → 4 bước → Done.<br/>
+                    Hướng dẫn chi tiết: <code>docs/INTEGRATION_KIOTVIET_CSV.md</code>
+                  </div>
+                </template>
+
+                <template x-if="kvCfg.mode === 'webhook'">
+                  <div>
+                    <label style="display:flex; align-items:center; gap:8px; margin-bottom:10px; cursor:pointer;">
+                      <input type="checkbox" x-model="kvCfg.enabled" />
+                      <span class="text-sm">Bật đồng bộ Webhook realtime</span>
+                    </label>
+
+                    <div class="field">
+                      <div class="label text-sm">Shop ID (do EcoSynTech cấp)</div>
+                      <input class="input" placeholder="VD: KVB-001" x-model="kvCfg.shop_id" />
+                    </div>
+
+                    <div class="field">
+                      <div class="label text-sm">Pull API Key (bí mật)</div>
+                      <div style="display:flex; gap:8px;">
+                        <input class="input" :type="kvCfg.show_key ? 'text' : 'password'"
+                               placeholder="Dán key từ Apps Script Properties" x-model="kvCfg.pull_api_key" />
+                        <button type="button" class="btn btn-ghost btn-sm"
+                                @click="kvCfg.show_key = !kvCfg.show_key"
+                                x-text="kvCfg.show_key ? 'Ẩn' : 'Hiện'"></button>
+                      </div>
+                    </div>
+
+                    <div class="field">
+                      <div class="label text-sm">GAS Endpoint (Web App URL)</div>
+                      <input class="input" placeholder="https://script.google.com/macros/s/.../exec"
+                             x-model="kvCfg.endpoint" />
+                    </div>
+
+                    <div class="field">
+                      <div class="label text-sm">Chu kỳ poll</div>
+                      <select class="input" x-model="kvCfg.poll_interval_min" style="max-width:160px;">
+                        <option value="1">1 phút</option>
+                        <option value="5">5 phút</option>
+                        <option value="15">15 phút</option>
+                        <option value="30">30 phút</option>
+                      </select>
+                    </div>
+
+                    <div class="text-xs text-muted" style="margin-bottom:10px;">
+                      Thiết lập đầy đủ: <code>integrations/gas/README_DEPLOY.md</code>
+                    </div>
+                  </div>
+                </template>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                  <button class="btn btn-primary btn-sm" @click="saveKiotViet()">Lưu</button>
+                  <button class="btn btn-ghost btn-sm" @click="testKiotViet()"
+                          x-show="kvCfg.mode === 'webhook'">Test kết nối</button>
+                  <button class="btn btn-ghost btn-sm" @click="kiotvietPollNow()"
+                          x-show="kvCfg.mode === 'webhook' && kvCfg.enabled">Poll ngay</button>
+                  <button class="btn btn-ghost btn-sm" @click="openKiotVietLog()">Xem log</button>
+                </div>
+                <div class="text-xs text-muted" style="margin-top: 8px;" x-text="kvMsg"></div>
+              </div>
+
+              <!-- KiotViet Log modal -->
+              <div x-show="kvLogOpen" class="modal-backdrop" @click.self="closeKiotVietLog()">
+                <div class="modal">
+                  <div class="modal-head">
+                    <h3>📜 Log đồng bộ KiotViet</h3>
+                  </div>
+                  <div class="modal-body" style="max-height:60vh; overflow:auto;">
+                    <template x-if="kvLog.length === 0">
+                      <div class="text-muted text-sm">Chưa có log.</div>
+                    </template>
+                    <template x-for="(l, i) in kvLog" :key="i">
+                      <div style="border-bottom:1px solid #eee; padding:8px 0;">
+                        <div class="text-xs" style="color:#555;"
+                             x-text="new Date(l.ts).toLocaleString('vi-VN')"></div>
+                        <div :class="l.level==='error' ? 'text-danger' : (l.level==='warn' ? '' : '')"
+                             style="font-size:13px;" x-text="'['+l.level+'] '+l.msg"></div>
+                      </div>
+                    </template>
+                  </div>
+                  <div class="modal-foot">
+                    <button class="btn btn-ghost btn-sm" @click="closeKiotVietLog()">Đóng</button>
+                  </div>
+                </div>
               </div>
 
               <!-- Telegram -->
@@ -1739,6 +1916,25 @@
         gasUrl: '', gasKey: '', gasMsg: '',
         tgToken: '', tgChat: '', tgMsg: '',
 
+        // ---- Demo mode + First-run PIN (V2.5.1 security fix) ----
+        isDemoMode: false,           // true khi URL có ?demo=1
+        firstRunPinModal: false,     // force show modal nếu pin_changed flag chưa set
+        firstRunPin: { new: '', confirm: '', error: '' },
+
+        // ---- KiotViet integration (V2.5) ----
+        kvCfg: {
+          mode: 'csv',          // 'csv' | 'webhook'
+          enabled: false,
+          shop_id: '',
+          pull_api_key: '',
+          endpoint: '',
+          poll_interval_min: 5,
+          show_key: false,
+        },
+        kvMsg: '',
+        kvLogOpen: false,
+        kvLog: [],
+
         // ---- Kiosk ----
         kioskTable: '',
 
@@ -1813,6 +2009,12 @@
 
         // ---- BOOT ----
         async boot() {
+          // V2.5.1: detect demo mode từ URL param
+          try {
+            const params = new URLSearchParams(location.search);
+            this.isDemoMode = params.get('demo') === '1';
+          } catch (e) { this.isDemoMode = false; }
+
           window.addEventListener('online',  () => this.online = true);
           window.addEventListener('offline', () => this.online = false);
           this.detectLayout();
@@ -1868,6 +2070,14 @@
             } catch (e) { /* BC not supported */ }
             // Sepay auto-confirm polling (V2.4)
             if (this.sepay.enabled && this.sepay.api_key) this.startSepayPolling();
+            // KiotViet pull polling (V2.5) — non-blocking
+            try {
+              const kv = KiotVietPull.getConfig();
+              this.kvCfg = { ...this.kvCfg, ...kv };
+              if (this.kvCfg.enabled && this.kvCfg.mode === 'webhook') {
+                KiotVietPull.startPolling(this);
+              }
+            } catch (e) { console.warn('[kv-pull] boot fail', e); }
             // Kitchen poll (3s) for new self-order Kiosk submissions
             this.kitchenLastPoll = Date.now();
             this.kitchenPollTimer = setInterval(() => this.pollKitchen(), 3000);
@@ -1907,14 +2117,16 @@
           if (!u) { this.loginError = 'PIN không đúng'; this.pin = ''; return; }
           Session.set(u);
           this.user = u;
+          // V2.5.1: check first-run PIN BEFORE clear this.pin (need to inspect raw PIN)
+          const needChange = this.checkFirstRunPin(u);
           this.pin = ''; this.loginError = '';
           this.refreshReports();
           this.loadOrders();
           this.refreshDashboard();
           this.loadFavorites();
           this.startAutoLogout();
-          // First-run tour?
-          if (!localStorage.getItem('eco_tour_done')) {
+          // First-run tour? — skip nếu đang force đổi PIN
+          if (!needChange && !localStorage.getItem('eco_tour_done')) {
             setTimeout(() => this.tourStep = 1, 600);
           }
         },
@@ -2555,6 +2767,96 @@
           if (!confirm('Xác nhận lần 2?')) return;
           await DB.resetAll(); location.reload();
         },
+
+        // ---- First-run PIN flow (V2.5.1 security fix) ----
+        /**
+         * Gọi từ submitPin() khi auth pass + user là owner.
+         * Nếu chưa đổi PIN (flag pin_changed=true) và đang dùng PIN mặc định 1234 → force modal.
+         */
+        checkFirstRunPin(loggedUser) {
+          // Chỉ áp dụng cho chủ quán, chỉ khi đang dùng PIN mặc định
+          if (loggedUser.role !== 'owner') return false;
+          const pinChanged = localStorage.getItem('eco_pin_changed_' + this.shop.id) === '1';
+          if (pinChanged) return false;
+          // Demo mode: cho phép skip
+          if (this.isDemoMode) return false;
+          // Nếu user vừa nhập PIN = 1234 (mặc định) → force đổi
+          if (this.pin === '1234') {
+            this.firstRunPinModal = true;
+            return true;
+          }
+          // Đã PIN khác mặc định → set flag và bỏ qua
+          localStorage.setItem('eco_pin_changed_' + this.shop.id, '1');
+          return false;
+        },
+        async submitFirstRunPin() {
+          this.firstRunPin.error = '';
+          const p = (this.firstRunPin.new || '').trim();
+          const c = (this.firstRunPin.confirm || '').trim();
+          if (!/^\d{4}$/.test(p)) { this.firstRunPin.error = 'PIN phải là 4 chữ số.'; return; }
+          if (p === '1234') { this.firstRunPin.error = 'KHÔNG được dùng PIN mặc định 1234.'; return; }
+          if (p !== c) { this.firstRunPin.error = 'PIN xác nhận không khớp.'; return; }
+          // Đổi PIN cho user hiện tại (owner)
+          try {
+            await Models.changePin(this.user.id, p, this.shop.id);
+            localStorage.setItem('eco_pin_changed_' + this.shop.id, '1');
+            this.firstRunPinModal = false;
+            this.firstRunPin = { new: '', confirm: '', error: '' };
+            this.showToast('✓ Đã đặt PIN mới. Lần sau dùng PIN này để đăng nhập.');
+          } catch (e) {
+            this.firstRunPin.error = 'Lỗi đổi PIN: ' + e.message;
+          }
+        },
+
+        // ---- Settings: KiotViet Integration (V2.5) ----
+        saveKiotViet() {
+          if (this.kvCfg.mode === 'webhook') {
+            if (!this.kvCfg.shop_id || !this.kvCfg.endpoint || !this.kvCfg.pull_api_key) {
+              this.kvMsg = '✗ Cần Shop ID + Endpoint + Pull API Key';
+              return;
+            }
+          }
+          KiotVietPull.setConfig({
+            mode: this.kvCfg.mode,
+            enabled: this.kvCfg.enabled,
+            shop_id: this.kvCfg.shop_id.trim(),
+            pull_api_key: this.kvCfg.pull_api_key.trim(),
+            endpoint: this.kvCfg.endpoint.trim(),
+            poll_interval_min: parseInt(this.kvCfg.poll_interval_min, 10) || 5,
+          });
+          // Restart polling theo trạng thái mới
+          KiotVietPull.stopPolling();
+          if (this.kvCfg.enabled && this.kvCfg.mode === 'webhook') {
+            KiotVietPull.startPolling(this);
+          }
+          this.kvMsg = '✓ Đã lưu cấu hình KiotViet.';
+        },
+        async testKiotViet() {
+          if (this.kvCfg.mode === 'csv') {
+            this.kvMsg = 'ℹ Mode CSV: dùng tab Import CSV upload file thủ công.';
+            return;
+          }
+          this.kvMsg = 'Đang test kết nối...';
+          const r = await KiotVietPull.testConnection();
+          this.kvMsg = r.ok
+            ? `✓ Kết nối OK (${r.count || 0} đơn rỗng — bình thường)`
+            : '✗ ' + (r.reason || 'không phản hồi');
+        },
+        async kiotvietPollNow() {
+          if (this.kvCfg.mode !== 'webhook' || !this.kvCfg.enabled) {
+            this.kvMsg = 'ℹ Webhook chưa bật.'; return;
+          }
+          this.kvMsg = 'Đang poll GAS...';
+          const r = await KiotVietPull.pollOnce(this);
+          if (!r) { this.kvMsg = 'ℹ Bỏ qua (chưa đủ cấu hình).'; return; }
+          this.kvMsg = `✓ Poll xong: import ${r.imported}, skip ${r.skipped}, lỗi ${r.errors}`;
+          if (r.imported > 0) { this.refreshDashboard(); this.loadOrders(); }
+        },
+        openKiotVietLog() {
+          this.kvLog = KiotVietPull.readLog();
+          this.kvLogOpen = true;
+        },
+        closeKiotVietLog() { this.kvLogOpen = false; },
 
         // ---- Theme + Big text + Tour ----
         toggleTheme() {
