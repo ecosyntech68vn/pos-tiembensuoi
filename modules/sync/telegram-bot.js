@@ -110,5 +110,36 @@ function sendDailyDigest() {
 }`;
   }
 
-  global.TelegramBot = { getConfig, setConfig, send, sendDailyDigest, gasCronInstructionTemplate };
+  /** Send to a specific shop's telegram config (per-shop, V2.4) — non-blocking */
+  async function sendForShop(shop, text) {
+    if (!shop || !shop.telegram_notify_enabled || !shop.telegram_bot_token || !shop.telegram_chat_id) return null;
+    const url = `https://api.telegram.org/bot${shop.telegram_bot_token}/sendMessage`;
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: shop.telegram_chat_id, text, parse_mode: 'HTML' }),
+      });
+      return r.ok ? await r.json() : null;
+    } catch (e) {
+      console.warn('[telegram] sendForShop fail', e.message);
+      return null;
+    }
+  }
+
+  /** Notify shop owner when an order auto-paid via Sepay */
+  async function notifyOrderPaid(shop, order, sepayTx) {
+    const tableLabel = order.table_number ? `Bàn ${order.table_number}` : 'Quầy';
+    const txId = (sepayTx && (sepayTx.id || sepayTx.reference_number || sepayTx.bank_brand_name)) || '';
+    const lines = [
+      `<b>✅ Đơn ${order.order_no}</b>`,
+      `🏷 ${tableLabel}`,
+      `💰 <b>${Utils.formatVND(order.total)}</b>`,
+      `💳 Sepay${txId ? ' #' + txId : ''}`,
+      `⏰ ${Utils.fmtDateTime(Date.now())}`,
+    ];
+    return await sendForShop(shop, lines.join('\n'));
+  }
+
+  global.TelegramBot = { getConfig, setConfig, send, sendDailyDigest, gasCronInstructionTemplate, sendForShop, notifyOrderPaid };
 })(window);
