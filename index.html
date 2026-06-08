@@ -34,6 +34,7 @@
   <script src="modules/core/utils.js"></script>
   <script src="modules/core/event-bus.js"></script>
   <script src="modules/core/icons.js"></script>
+  <script src="modules/core/vietqr.js"></script>
   <script src="modules/core/db.js"></script>
   <script src="modules/core/models.js"></script>
   <script src="modules/auth/session.js"></script>
@@ -506,6 +507,140 @@
               </div>
             </div>
 
+            <!-- ============ VIEW: KITCHEN (Bếp Kanban) ============ -->
+            <div x-show="view==='kitchen'">
+              <div class="page-header">
+                <div>
+                  <h1>Bếp</h1>
+                  <div class="page-subtitle">Kanban đơn cần làm — đơn Kiosk tự động xuất hiện trong cột "Chờ làm".</div>
+                </div>
+                <button class="btn btn-ghost btn-sm" @click="loadKitchen()">
+                  <span x-html="Icons.svg('refresh','width=14 height=14')"></span> Tải lại
+                </button>
+              </div>
+
+              <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                <!-- Lane: Chờ làm -->
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 12px; min-height: 200px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3>🆕 Chờ làm</h3>
+                    <span class="pill warning num" x-text="kitchen.pending.length"></span>
+                  </div>
+                  <div x-show="kitchen.pending.length===0" class="empty-state" style="padding: 16px 0;">
+                    <div class="empty-icon" style="width: 50px; height: 50px;" x-html="Icons.svg('coffee','width=24 height=24')"></div>
+                    <div class="empty-desc text-xs">Chưa có đơn mới</div>
+                  </div>
+                  <template x-for="o in kitchen.pending" :key="o.id">
+                    <div class="card card-tight" style="margin-bottom: 8px; border-left: 3px solid var(--warning);"
+                         :style="elapsedMin(o.created_at) > 10 ? 'border-left-color: var(--danger); background: #fef2f2;' : ''">
+                      <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                          <div x-show="o.table_number" style="font-size: 22px; font-weight: 800; color: var(--accent); letter-spacing: -0.02em;">
+                            Bàn <span x-text="o.table_number"></span>
+                          </div>
+                          <div x-show="!o.table_number" style="font-size: 16px; font-weight: 700;">Quầy</div>
+                          <div class="font-mono text-xs text-subtle" x-text="o.order_no"></div>
+                        </div>
+                        <div style="text-align: right;">
+                          <span class="pill" :class="sourceBadge(o.order_source).cls">
+                            <span x-text="sourceBadge(o.order_source).icon"></span>
+                            <span x-text="sourceBadge(o.order_source).label"></span>
+                          </span>
+                          <div class="text-xs" style="margin-top: 4px;"
+                               :class="elapsedMin(o.created_at) > 10 ? 'text-danger' : 'text-subtle'">
+                            ⏱ <span x-text="elapsedMin(o.created_at)"></span>p
+                          </div>
+                        </div>
+                      </div>
+                      <ul class="text-xs text-muted" style="margin: 8px 0 0 16px; padding: 0;">
+                        <template x-for="(it, idx) in kitchenItemsFor(o.id)" :key="idx">
+                          <li>
+                            <span class="num" x-text="it.qty"></span>×
+                            <span x-text="it.product_name"></span>
+                            <span class="text-subtle" x-show="it.variants_json && it.variants_json !== '[]'"
+                                  x-text="' · ' + (JSON.parse(it.variants_json||'[]').map(v=>v.name).join(' · '))"></span>
+                          </li>
+                        </template>
+                      </ul>
+                      <div style="display: flex; gap: 4px; margin-top: 10px;">
+                        <button class="btn btn-primary btn-sm" style="flex: 1;" @click="moveKitchen(o.id, 'preparing')">
+                          🔥 Nhận làm
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Lane: Đang làm -->
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 12px; min-height: 200px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3>🔥 Đang làm</h3>
+                    <span class="pill info num" x-text="kitchen.preparing.length"></span>
+                  </div>
+                  <div x-show="kitchen.preparing.length===0" class="text-xs text-subtle" style="text-align: center; padding: 12px 0;">— trống —</div>
+                  <template x-for="o in kitchen.preparing" :key="o.id">
+                    <div class="card card-tight" style="margin-bottom: 8px; border-left: 3px solid var(--info);">
+                      <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                          <div x-show="o.table_number" style="font-size: 18px; font-weight: 700; color: var(--accent);">
+                            Bàn <span x-text="o.table_number"></span>
+                          </div>
+                          <div class="font-mono text-xs text-subtle" x-text="o.order_no"></div>
+                        </div>
+                        <div class="text-xs text-subtle" style="text-align: right;">
+                          NV: <b x-text="o.assigned_name || '—'"></b><br/>
+                          🔥 <span x-text="elapsedMin(o.kitchen_started_at || o.created_at)"></span>p
+                        </div>
+                      </div>
+                      <ul class="text-xs text-muted" style="margin: 8px 0 0 16px; padding: 0;">
+                        <template x-for="(it, idx) in kitchenItemsFor(o.id)" :key="idx">
+                          <li><span class="num" x-text="it.qty"></span>× <span x-text="it.product_name"></span></li>
+                        </template>
+                      </ul>
+                      <div style="display: flex; gap: 4px; margin-top: 10px;">
+                        <button class="btn btn-ghost btn-sm" @click="moveKitchen(o.id, 'pending')">← Trả về</button>
+                        <button class="btn btn-accent btn-sm" style="flex: 1;" @click="moveKitchen(o.id, 'ready')">
+                          ✅ Sẵn sàng
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+
+                <!-- Lane: Sẵn sàng -->
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 12px; min-height: 200px;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <h3>✅ Sẵn sàng</h3>
+                    <span class="pill success num" x-text="kitchen.ready.length"></span>
+                  </div>
+                  <div x-show="kitchen.ready.length===0" class="text-xs text-subtle" style="text-align: center; padding: 12px 0;">— trống —</div>
+                  <template x-for="o in kitchen.ready" :key="o.id">
+                    <div class="card card-tight" style="margin-bottom: 8px; border-left: 3px solid var(--success); background: var(--primary-light);">
+                      <div style="display: flex; justify-content: space-between; align-items: start;">
+                        <div>
+                          <div x-show="o.table_number" style="font-size: 18px; font-weight: 700; color: var(--accent);">
+                            Bàn <span x-text="o.table_number"></span>
+                          </div>
+                          <div class="font-mono text-xs text-subtle" x-text="o.order_no"></div>
+                        </div>
+                        <div class="text-xs text-subtle" style="text-align: right;">
+                          Xong: <span x-text="elapsedMin(o.kitchen_ready_at || o.created_at)"></span>p
+                        </div>
+                      </div>
+                      <div style="display: flex; gap: 4px; margin-top: 10px;">
+                        <button class="btn btn-ghost btn-sm" @click="moveKitchen(o.id, 'preparing')">← Lại</button>
+                        <button class="btn btn-primary btn-sm" style="flex: 1;" @click="moveKitchen(o.id, 'served')">
+                          🚚 Đã giao
+                        </button>
+                        <button class="btn btn-ghost btn-sm" @click="openReceipt(o, 80)" title="In bill"
+                                x-html="Icons.svg('download','width=14 height=14')"></button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+            </div>
+
             <!-- ============ VIEW: ORDERS ============ -->
             <div x-show="view==='orders'">
               <div class="page-header">
@@ -520,16 +655,23 @@
 
               <div class="card">
                 <table class="table">
-                  <thead><tr><th>Mã đơn</th><th>Giờ</th><th>NV</th><th>Tổng</th><th>Trạng thái</th><th>Đồng bộ</th></tr></thead>
+                  <thead><tr><th>Mã đơn</th><th>Bàn</th><th>Giờ</th><th>NV</th><th>Tổng</th><th>Nguồn</th><th>Trạng thái</th><th>Bếp</th><th></th></tr></thead>
                   <tbody>
                     <template x-for="o in orders" :key="o.id">
                       <tr>
                         <td class="font-mono" x-text="o.order_no"></td>
+                        <td><span x-show="o.table_number" class="pill info">Bàn <span x-text="o.table_number"></span></span></td>
                         <td x-text="fmtTime(o.created_at)"></td>
                         <td x-text="userName(o.user_id) || '—'"></td>
                         <td class="num" style="font-weight: 600;" x-text="formatVND(o.total)"></td>
+                        <td><span class="pill" :class="sourceBadge(o.order_source).cls"><span x-text="sourceBadge(o.order_source).icon"></span> <span x-text="sourceBadge(o.order_source).label"></span></span></td>
                         <td><span class="pill" :class="o.status==='paid'?'success':o.status==='cancelled'?'danger':'muted'" x-text="o.status"></span></td>
-                        <td><span class="pill" :class="o.sync_status==='synced'?'success':o.sync_status==='failed'?'danger':'warning'" x-text="o.sync_status"></span></td>
+                        <td><span class="pill muted text-xs" x-text="o.kitchen_status || 'pending'"></span></td>
+                        <td>
+                          <button class="btn btn-ghost btn-sm" @click="openReceipt(o, 80)" title="In bill 80mm">
+                            <span x-html="Icons.svg('download','width=12 height=12')"></span>
+                          </button>
+                        </td>
                       </tr>
                     </template>
                   </tbody>
@@ -717,6 +859,56 @@
                       <option value="owner">Chủ quán</option>
                     </select>
                     <button class="btn btn-primary btn-sm" @click="addUser()">Thêm</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Payment Config (V2.3) -->
+              <div class="card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 12px;">💳 Cấu hình thanh toán QR (VietQR)</h3>
+                <div class="text-sm text-muted" style="margin-bottom: 12px;">
+                  Khách Kiosk quét QR thanh toán chuyển khoản, số tiền + mã đơn tự động điền.
+                </div>
+                <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="field">
+                    <div class="label">Ngân hàng</div>
+                    <select class="input" x-model="payment.bank_bin">
+                      <option value="">— chọn ngân hàng —</option>
+                      <template x-for="b in bankList()" :key="b.bin">
+                        <option :value="b.bin" x-text="b.name + ' (' + b.code + ')'"></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <div class="label">Số tài khoản</div>
+                    <input class="input num" x-model="payment.account_no" placeholder="VD: 0123456789" />
+                  </div>
+                  <div class="field" style="grid-column: 1 / -1;">
+                    <div class="label">Tên chủ tài khoản (không dấu, in hoa)</div>
+                    <input class="input" x-model="payment.account_name" placeholder="VD: NGUYEN VAN A" />
+                  </div>
+                </div>
+                <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px; cursor: pointer;">
+                  <input type="checkbox" x-model="payment.qr_enabled" />
+                  <span class="text-sm">Hiển thị QR sau khi khách Kiosk đặt đơn</span>
+                </label>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                  <button class="btn btn-primary btn-sm" @click="savePayment()">
+                    <span x-html="Icons.svg('check','width=14 height=14')"></span> Lưu cấu hình
+                  </button>
+                </div>
+                <div class="text-xs text-success" style="margin-top: 8px;" x-text="paymentMsg"></div>
+                <!-- Live preview -->
+                <div x-show="payment.bank_bin && payment.account_no" style="margin-top: 16px; border-top: 1px dashed var(--border-strong); padding-top: 12px;">
+                  <div class="caption" style="margin-bottom: 8px;">Xem trước QR (mẫu 50.000đ)</div>
+                  <div style="display: flex; gap: 16px; align-items: center;">
+                    <img :src="previewQRUrl(50000, 'TEST_QR')" alt="VietQR Preview" style="width: 180px; height: auto; border: 1px solid var(--border); border-radius: var(--r-md);" loading="lazy" />
+                    <div class="text-sm">
+                      <div><b x-text="bankNameByBin(payment.bank_bin)"></b></div>
+                      <div class="num" x-text="payment.account_no"></div>
+                      <div x-text="payment.account_name"></div>
+                      <div class="text-subtle" style="margin-top: 6px;">Quét bằng app ngân hàng để test.</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1207,6 +1399,95 @@
       </div>
     </template>
 
+    <!-- ============ RECEIPT MODAL (print-friendly) ============ -->
+    <template x-if="user && receipt.open">
+      <div class="modal-backdrop no-print" @click.self="receipt.open=false">
+        <div class="modal" style="max-width: 360px; padding: 0;">
+          <div class="receipt" style="font-family: 'JetBrains Mono', ui-monospace, monospace; padding: 16px; font-size: 13px; line-height: 1.4; color: #000; background: #fff;">
+            <!-- Header -->
+            <div style="text-align: center;">
+              <div x-show="shop?.logo_data_url"><img :src="shop.logo_data_url" alt="logo" style="max-width: 60px; max-height: 60px; margin: 0 auto 4px;" /></div>
+              <div style="font-weight: 800; font-size: 16px; letter-spacing: 0.04em;" x-text="(shop?.name || '').toUpperCase()"></div>
+              <div class="text-xs" x-text="shop?.address"></div>
+              <div class="text-xs" x-text="shop?.phone"></div>
+              <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
+            </div>
+
+            <!-- Order info -->
+            <div style="display: flex; justify-content: space-between;">
+              <span>Đơn:</span> <b x-text="receipt.order?.order_no"></b>
+            </div>
+            <div style="display: flex; justify-content: space-between;" x-show="receipt.order?.table_number">
+              <span>Bàn:</span> <b x-text="receipt.order?.table_number"></b>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>NV:</span> <b x-text="userName(receipt.order?.user_id) || '—'"></b>
+            </div>
+            <div style="display: flex; justify-content: space-between;">
+              <span>Giờ:</span> <b x-text="fmtTime(receipt.order?.created_at)"></b>
+            </div>
+            <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
+
+            <!-- Items -->
+            <template x-for="(it, idx) in receipt.items" :key="idx">
+              <div style="margin-bottom: 4px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span><b x-text="it.qty"></b>× <span x-text="it.product_name"></span></span>
+                  <span x-text="formatVND(it.line_total)"></span>
+                </div>
+                <div class="text-xs" style="padding-left: 12px;" x-text="(JSON.parse(it.variants_json||'[]').map(v=>v.name).join(' · '))"></div>
+              </div>
+            </template>
+            <div style="border-top: 1px dashed #000; margin: 8px 0;"></div>
+
+            <!-- Totals -->
+            <div style="display: flex; justify-content: space-between;">
+              <span>Tạm tính:</span> <span x-text="formatVND(receipt.order?.subtotal || 0)"></span>
+            </div>
+            <div style="display: flex; justify-content: space-between;" x-show="(receipt.order?.tax || 0) > 0">
+              <span>VAT:</span> <span x-text="formatVND(receipt.order?.tax || 0)"></span>
+            </div>
+            <div style="display: flex; justify-content: space-between;" x-show="(receipt.order?.discount || 0) > 0">
+              <span>Giảm giá:</span> <span x-text="'-' + formatVND(receipt.order?.discount || 0)"></span>
+            </div>
+            <div style="display: flex; justify-content: space-between; border-top: 2px solid #000; margin-top: 6px; padding-top: 6px; font-weight: 800; font-size: 15px;">
+              <span>TỔNG:</span> <span x-text="formatVND(receipt.order?.total || 0)"></span>
+            </div>
+            <div class="text-xs" style="margin-top: 4px;">
+              Thanh toán: <b x-text="(receipt.order?.payment_method || 'cash').toUpperCase()"></b>
+            </div>
+
+            <!-- QR if unpaid + bank configured -->
+            <div x-show="receipt.qrUrl" style="text-align: center; margin: 12px 0; border: 1px dashed #000; padding: 8px; border-radius: 6px;">
+              <div class="text-xs" style="font-weight: 600;">QUÉT QR THANH TOÁN</div>
+              <img :src="receipt.qrUrl" alt="VietQR" style="width: 180px; height: auto; margin: 6px auto;" loading="lazy" />
+              <div class="text-xs" x-text="bankNameByBin(shop?.payment_bank_bin)"></div>
+              <div class="text-xs num" x-text="shop?.payment_account_no"></div>
+              <div class="text-xs" x-text="shop?.payment_account_name"></div>
+              <div class="text-xs" style="margin-top: 4px;">Nội dung CK: <b x-text="receipt.order?.order_no"></b></div>
+            </div>
+
+            <!-- Footer -->
+            <div style="text-align: center; margin-top: 12px; border-top: 1px dashed #000; padding-top: 8px;">
+              <div style="font-weight: 600;">Cảm ơn quý khách 💚</div>
+              <div class="text-xs" style="margin-top: 4px; font-style: italic;">Powered by EcoSynTech Global</div>
+              <div class="text-xs" style="font-style: italic;">ecosyntechglobal.com</div>
+            </div>
+          </div>
+
+          <div class="modal-foot no-print">
+            <button class="btn btn-ghost btn-sm" @click="receipt.width=58" :class="receipt.width===58?'btn-primary':''">58mm</button>
+            <button class="btn btn-ghost btn-sm" @click="receipt.width=80" :class="receipt.width===80?'btn-primary':''">80mm</button>
+            <div style="flex: 1;"></div>
+            <button class="btn btn-ghost" @click="receipt.open=false">Đóng</button>
+            <button class="btn btn-primary" @click="printReceipt()">
+              <span x-html="Icons.svg('download','width=14 height=14')"></span> In bill
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- ============ DEDUCT SUMMARY MODAL ============ -->
     <template x-if="user && deductSummary.open">
       <div class="modal-backdrop" @click.self="deductSummary.open=false">
@@ -1337,11 +1618,25 @@
         // ---- Kiosk ----
         kioskTable: '',
 
+        // ---- Kitchen (V2.3) ----
+        kitchen: { pending: [], preparing: [], ready: [] },
+        kitchenAssignTarget: null,
+        kitchenLastPoll: 0,
+        kitchenPollTimer: null,
+
+        // ---- Payment Config (V2.3) ----
+        payment: { bank_bin: '', account_no: '', account_name: '', qr_enabled: false },
+        paymentMsg: '',
+
+        // ---- Receipt (V2.3) ----
+        receipt: { open: false, order: null, items: [], qrUrl: '', width: 80 },
+
         // ---- Computed-like ----
         navItems() {
           const all = [
             { id: 'dashboard', label: 'Tổng quan', icon: 'dashboard' },
             { id: 'pos',       label: 'POS Bán hàng', icon: 'pos' },
+            { id: 'kitchen',   label: 'Bếp', icon: 'coffee' },
             { id: 'import',    label: 'Import CSV',  icon: 'import', ownerOnly: true },
             { id: 'orders',    label: 'Đơn hàng',    icon: 'orders' },
             { id: 'reports',   label: 'Báo cáo',     icon: 'reports' },
@@ -1394,6 +1689,12 @@
             this.bootMsg = 'Đang nạp menu...';
             this.shop = Models.getShop();
             this.vatPct = this.shop?.tax_rate || 0;
+            this.payment = {
+              bank_bin: this.shop?.payment_bank_bin || '',
+              account_no: this.shop?.payment_account_no || '',
+              account_name: this.shop?.payment_account_name || '',
+              qr_enabled: !!this.shop?.payment_qr_enabled,
+            };
             this.loadCatalog();
             this.users = Models.listUsers(this.shop.id);
             const cfg = GASClient.getConfig();
@@ -1401,6 +1702,9 @@
             const tg = TelegramBot.getConfig();
             this.tgToken = tg.bot_token || ''; this.tgChat = tg.chat_id || '';
             SyncQueue.start(this.shop.id, 60000);
+            // Kitchen poll (3s) for new self-order Kiosk submissions
+            this.kitchenLastPoll = Date.now();
+            this.kitchenPollTimer = setInterval(() => this.pollKitchen(), 3000);
             if ('serviceWorker' in navigator) {
               navigator.serviceWorker.register('service-worker.js').catch(e => console.warn('SW reg', e));
             }
@@ -1652,6 +1956,7 @@
           if (v === 'inventory') this.loadCatalog();
           if (v === 'pos') this.loadFavorites();
           if (v === 'import') this.impInit();
+          if (v === 'kitchen') this.loadKitchen();
         },
 
         // ---- Product Editor (full modal with recipe tab) ----
@@ -1778,6 +2083,102 @@
         deductSummary: { open: false, title: '', orders: 0, items: 0, lines: [], lowAfter: [] },
         showDeductSummary(payload) {
           this.deductSummary = { ...payload, open: true };
+        },
+
+        // ---- Kitchen (V2.3) ----
+        loadKitchen() {
+          if (!this.shop) return;
+          this.kitchen = {
+            pending:   Models.listKitchenOrdersByStatus(this.shop.id, 'pending'),
+            preparing: Models.listKitchenOrdersByStatus(this.shop.id, 'preparing'),
+            ready:     Models.listKitchenOrdersByStatus(this.shop.id, 'ready'),
+          };
+        },
+        kitchenItemsFor(orderId) { return Models.getOrderItems(orderId); },
+        moveKitchen(orderId, status) {
+          Models.updateKitchenStatus(orderId, status, this.user?.id);
+          this.loadKitchen();
+          this.loadOrders();
+        },
+        elapsedMin(ts) {
+          if (!ts) return 0;
+          return Math.floor((Date.now() - ts) / 60000);
+        },
+        sourceBadge(src) {
+          if (src === 'self_order') return { icon: '🪑', label: 'Kiosk', cls: 'pill info' };
+          if (src === 'import')     return { icon: '📥', label: 'Import', cls: 'pill muted' };
+          return { icon: '👤', label: 'POS', cls: 'pill success' };
+        },
+        pollKitchen() {
+          if (!this.shop) return;
+          const since = this.kitchenLastPoll;
+          this.kitchenLastPoll = Date.now();
+          const newCount = Models.countNewKitchenSince(this.shop.id, since);
+          if (newCount > 0) {
+            this.ringBell();
+            this.showToast('🔔 ' + newCount + ' đơn mới chờ làm');
+            if (this.view === 'kitchen') this.loadKitchen();
+            // Refresh badge on bell icon
+            this.refreshDashboard();
+          }
+        },
+        ringBell() {
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [880, 1320].forEach((freq, i) => {
+              const o = ctx.createOscillator();
+              const g = ctx.createGain();
+              o.type = 'sine';
+              o.frequency.value = freq;
+              g.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
+              g.gain.linearRampToValueAtTime(0.08, ctx.currentTime + i * 0.15 + 0.02);
+              g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.18);
+              o.connect(g); g.connect(ctx.destination);
+              o.start(ctx.currentTime + i * 0.15);
+              o.stop(ctx.currentTime + i * 0.15 + 0.2);
+            });
+          } catch (e) { /* AudioContext may need user gesture first time */ }
+        },
+
+        // ---- Payment Config (V2.3) ----
+        savePayment() {
+          Models.updatePayment(this.shop.id, this.payment);
+          this.shop.payment_bank_bin = this.payment.bank_bin;
+          this.shop.payment_account_no = this.payment.account_no;
+          this.shop.payment_account_name = this.payment.account_name;
+          this.shop.payment_qr_enabled = this.payment.qr_enabled ? 1 : 0;
+          this.paymentMsg = '✓ Đã lưu cấu hình thanh toán.';
+          this.showToast('Đã lưu Payment Config');
+        },
+        previewQRUrl(amount, message) {
+          if (!this.payment.bank_bin || !this.payment.account_no) return null;
+          return VietQR.qrUrl({
+            bank_bin: this.payment.bank_bin,
+            account_no: this.payment.account_no,
+            account_name: this.payment.account_name,
+            amount: amount || 50000,
+            message: message || 'Test QR',
+          });
+        },
+        bankList() { return VietQR.BANKS; },
+        bankNameByBin(bin) { const b = VietQR.bankByBin(bin); return b ? b.name : ''; },
+
+        // ---- Receipt (V2.3) ----
+        openReceipt(order, width) {
+          const items = Models.getOrderItems(order.id);
+          const qrUrl = (order.status !== 'paid' && this.payment.qr_enabled)
+            ? VietQR.qrUrl({
+                bank_bin: this.payment.bank_bin,
+                account_no: this.payment.account_no,
+                account_name: this.payment.account_name,
+                amount: order.total,
+                message: order.order_no,
+              })
+            : '';
+          this.receipt = { open: true, order, items, qrUrl, width: width || 80 };
+        },
+        printReceipt() {
+          window.print();
         },
 
         // ---- Settings: shop, users ----

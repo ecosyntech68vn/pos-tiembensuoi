@@ -23,6 +23,7 @@
   <script src="modules/core/utils.js"></script>
   <script src="modules/core/event-bus.js"></script>
   <script src="modules/core/icons.js"></script>
+  <script src="modules/core/vietqr.js"></script>
   <script src="modules/core/db.js"></script>
   <script src="modules/core/models.js"></script>
   <script src="modules/pos/cart.js"></script>
@@ -345,17 +346,37 @@
         <!-- Success overlay -->
         <template x-if="successView">
           <div class="success-overlay">
-            <div class="success-card">
+            <div class="success-card" style="max-width: 480px;">
               <div class="success-check" x-html="Icons.svg('check','width=48 height=48')"></div>
               <h2 style="font-size: 22px; font-weight: 700;">Đặt món thành công!</h2>
               <div class="text-sm text-muted" style="margin: 12px 0;">
                 Mã đơn: <b class="font-mono" x-text="lastOrderNo"></b><br/>
-                Tổng: <b class="num" x-text="formatVND(lastOrderTotal)"></b>
+                Tổng: <span class="num text-primary" style="font-size: 24px; font-weight: 800;" x-text="formatVND(lastOrderTotal)"></span>
               </div>
-              <div class="text-sm text-muted" style="background: var(--primary-light); padding: 12px; border-radius: var(--r-md); margin-top: 16px;">
+
+              <!-- QR thanh toán nếu shop bật -->
+              <div x-show="qrPaymentUrl" style="margin-top: 16px; border: 1px solid var(--border-strong); border-radius: var(--r-md); padding: 12px; background: var(--bg-base);">
+                <div style="font-weight: 700; font-size: 14px; color: var(--primary);">📱 Quét QR thanh toán</div>
+                <img :src="qrPaymentUrl" alt="VietQR" style="width: 220px; height: auto; margin: 8px auto; display: block;" loading="lazy" />
+                <div class="text-xs text-muted">
+                  <div><b x-text="bankName"></b></div>
+                  <div class="num"><b x-text="shop?.payment_account_no"></b></div>
+                  <div x-text="shop?.payment_account_name"></div>
+                  <div style="margin-top: 4px;">Nội dung CK: <b class="font-mono" x-text="lastOrderNo"></b></div>
+                </div>
+                <div class="text-xs" style="color: var(--warning); margin-top: 8px;">⏱ Hiệu lực 5 phút</div>
+              </div>
+
+              <div x-show="!qrPaymentUrl" class="text-sm text-muted" style="background: var(--primary-light); padding: 12px; border-radius: var(--r-md); margin-top: 16px;">
                 💚 Vui lòng ra <b>quầy thanh toán</b> để hoàn tất đơn hàng.<br/>
                 Nhân viên đã được thông báo.
               </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: center;" x-show="qrPaymentUrl">
+                <button class="btn btn-primary btn-sm" @click="markPaid()">✓ Đã thanh toán</button>
+                <button class="btn btn-ghost btn-sm" @click="closeSuccess()">Thanh toán quầy</button>
+              </div>
+
               <div class="text-xs text-subtle" style="margin-top: 16px;">
                 Tự đóng sau <span x-text="successCountdown"></span>s...
               </div>
@@ -418,8 +439,11 @@
 
         successView: false,
         lastOrderNo: '',
+        lastOrderId: null,
         lastOrderTotal: 0,
-        successCountdown: 8,
+        successCountdown: 60,
+        qrPaymentUrl: '',
+        bankName: '',
 
         // Idle handling
         idleTimer: null,
@@ -475,30 +499,60 @@
             const orderData = {
               branch_id: this.shop.id,
               user_id: null,
-              status: 'pending', // pending = chưa thanh toán; NV confirm ở POS chính
+              status: 'pending',
               subtotal: this.cart.subtotal(),
               tax: 0, discount: 0, total,
-              payment_method: 'cash', // default — NV sẽ chọn thật ở quầy
-              note: '[KIOSK' + (this.tableNo ? ' · Bàn ' + this.tableNo : '') + ']',
+              payment_method: 'transfer',
+              note: '[KIOSK]',
+              table_number: this.tableNo ? parseInt(this.tableNo, 10) : null,
+              order_source: 'self_order',
+              kitchen_status: 'pending',
             };
             const res = Models.createOrder(orderData, items);
             this.lastOrderNo = res.order_no;
+            this.lastOrderId = res.id;
             this.lastOrderTotal = total;
+            // Build QR if shop has payment configured + enabled
+            if (this.shop.payment_qr_enabled && this.shop.payment_bank_bin && this.shop.payment_account_no) {
+              this.qrPaymentUrl = VietQR.qrUrl({
+                bank_bin: this.shop.payment_bank_bin,
+                account_no: this.shop.payment_account_no,
+                account_name: this.shop.payment_account_name,
+                amount: total,
+                message: res.order_no,
+              });
+              const b = VietQR.bankByBin(this.shop.payment_bank_bin);
+              this.bankName = b ? b.name : '';
+            } else {
+              this.qrPaymentUrl = '';
+            }
             this.cart.clear();
             this.successView = true;
-            this.successCountdown = 8;
-            const cdTimer = setInterval(() => {
+            this.successCountdown = this.qrPaymentUrl ? 300 : 8; // 5 min if QR, 8s if no QR
+            this._cdTimer && clearInterval(this._cdTimer);
+            this._cdTimer = setInterval(() => {
               this.successCountdown--;
               if (this.successCountdown <= 0) {
-                clearInterval(cdTimer);
-                this.successView = false;
-                this.armIdle();
+                clearInterval(this._cdTimer);
+                this.closeSuccess();
               }
             }, 1000);
           } catch (e) {
             alert('Lỗi đặt món: ' + e.message);
             console.error(e);
           } finally { this.submitting = false; }
+        },
+        markPaid() {
+          if (!this.lastOrderId) return;
+          Models.markOrderPaid(this.lastOrderId, 'transfer');
+          this.closeSuccess();
+        },
+        closeSuccess() {
+          this.successView = false;
+          this.qrPaymentUrl = '';
+          this.lastOrderId = null;
+          this._cdTimer && clearInterval(this._cdTimer);
+          this.armIdle();
         },
 
         // ---- Idle ----
