@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <title>KiotViet CSV Import — Self-test</title>
+  <style>
+    body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; max-width: 900px; margin: 24px auto; padding: 0 16px; color: #1a2333; }
+    h1 { font-size: 20px; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+    button { padding: 8px 14px; border-radius: 6px; border: 1px solid #2d6e4e; background: #2d6e4e; color: #fff; cursor: pointer; font-weight: 600; }
+    button.ghost { background: #fff; color: #2d6e4e; }
+    pre { background: #f4f6f8; padding: 12px; border-radius: 6px; max-height: 380px; overflow: auto; font-size: 12px; }
+    .ok { color: #137334; font-weight: 700; }
+    .fail { color: #b32525; font-weight: 700; }
+    .step { padding: 10px 12px; border: 1px solid #ddd; border-radius: 6px; margin: 8px 0; }
+    .step.ok { border-color: #2d6e4e; background: #f1faf3; }
+    .step.fail { border-color: #b32525; background: #fcefef; }
+    code { background: #eef; padding: 1px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <h1>🧪 KiotViet CSV Import — Self-test (offline, không cần server)</h1>
+  <p class="muted">Mục tiêu: verify <code>csv-parser.js</code> + <code>import-wizard.js</code> + <code>kiotviet.json</code> hoạt động ĐÚNG với sample <code>seed/sample-kiotviet-export.csv</code>. Test ở mức pure functions (KHÔNG đụng DB) — đủ để chốt format mapping ngay trước khi gặp khách.</p>
+
+  <div class="row">
+    <button onclick="runAll()">▶ Chạy toàn bộ 5 test</button>
+    <button class="ghost" onclick="clearLog()">Xoá log</button>
+    <span id="overall" style="font-weight:700;"></span>
+  </div>
+
+  <div id="steps"></div>
+  <h3>Log chi tiết</h3>
+  <pre id="log"></pre>
+
+  <!-- Reuse production modules -->
+  <script src="../modules/import/csv-parser.js"></script>
+  <script src="../modules/import/import-wizard.js"></script>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const log = (s) => { $('log').textContent += s + '\n'; };
+    function clearLog(){ $('log').textContent=''; $('steps').innerHTML=''; $('overall').textContent=''; }
+    function step(name, ok, detail) {
+      const div = document.createElement('div');
+      div.className = 'step ' + (ok ? 'ok' : 'fail');
+      div.innerHTML = `<b>${ok ? '✓' : '✗'} ${name}</b><br><span style="font-size:12px;">${detail}</span>`;
+      $('steps').appendChild(div);
+      return ok;
+    }
+
+    async function runAll() {
+      clearLog();
+      let pass = 0, total = 0;
+
+      // T1: load CSV file
+      total++;
+      const csvText = await fetch('../seed/sample-kiotviet-export.csv').then(r => r.text());
+      const t1 = csvText.length > 100 && csvText.includes('HD0001');
+      log('T1 CSV length: ' + csvText.length);
+      if (step('T1 — Load sample-kiotviet-export.csv', t1, `${csvText.length} bytes, có HD0001 ✓`)) pass++;
+
+      // T2: parse CSV → headers
+      total++;
+      const rows = CSVParser.parseCSV(csvText);
+      const { headers, objects } = CSVParser.rowsToObjects(rows);
+      const t2 = headers.includes('Mã đơn') && headers.includes('Tên hàng hóa') && objects.length === 9;
+      log('T2 headers: ' + JSON.stringify(headers));
+      log('T2 row count: ' + objects.length);
+      if (step('T2 — RFC 4180 parser', t2,
+        `Headers: ${headers.length} cột; data rows: ${objects.length} (kỳ vọng 9 dòng)`)) pass++;
+
+      // T3: detect KiotViet preset
+      total++;
+      await ImportWizard.loadPresets();
+      const detected = ImportWizard.detectPreset(headers);
+      const t3 = detected.key === 'kiotviet' && detected.score >= 3;
+      log('T3 detect: key=' + detected.key + ' score=' + detected.score);
+      if (step('T3 — Auto-detect = KiotViet', t3,
+        `Match key: <b>${detected.key}</b>, score: ${detected.score} (kỳ vọng kiotviet, score ≥ 3)`)) pass++;
+
+      // T4: auto column mapping
+      total++;
+      const map = ImportWizard.autoMap(detected.preset, headers);
+      const t4 = map.order_no === 'Mã đơn' && map.product_name === 'Tên hàng hóa' && map.created_at === 'Thời gian';
+      log('T4 map: ' + JSON.stringify(map, null, 2));
+      if (step('T4 — Auto-map cột', t4,
+        `order_no→${map.order_no}, product_name→${map.product_name}, created_at→${map.created_at}`)) pass++;
+
+      // T5: normalize + group → 5 orders (HD0001..HD0005), HD0002 có 3 items
+      total++;
+      const norm = ImportWizard.normalize(objects, detected.preset, map);
+      const grouped = ImportWizard.groupByOrder(norm, detected.preset);
+      const hd2 = grouped.find(o => o.order_no === 'HD0002');
+      const hd2Items = hd2 ? hd2.items.length : 0;
+      const hd2Total = hd2 ? hd2.total : 0;
+      const t5 = grouped.length === 5 && hd2Items === 3 && hd2Total === 55000;
+      log('T5 orders: ' + grouped.length);
+      log('T5 HD0002: items=' + hd2Items + ' total=' + hd2Total + ' (kỳ vọng 3 / 55000)');
+      log('T5 sample HD0002: ' + JSON.stringify(hd2, null, 2));
+      if (step('T5 — Group rows → orders, gộp items đúng', t5,
+        `Tổng đơn: ${grouped.length} (kỳ vọng 5); HD0002 có ${hd2Items} items, total=${hd2Total} (kỳ vọng 3 / 55000)`)) pass++;
+
+      // Bonus: validate
+      const v = ImportWizard.validate(grouped);
+      log('Validate: valid=' + v.valid + ' issues=' + JSON.stringify(v.issues));
+
+      $('overall').textContent = `${pass}/${total} PASS`;
+      $('overall').style.color = pass === total ? '#137334' : '#b32525';
+    }
+  </script>
+</body>
+</html>
