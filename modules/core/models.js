@@ -17,6 +17,13 @@
          data.tax_rate || 0, data.round_to || 1000, data.license_to || '', data.id]
       );
     },
+    updatePayment(branchId, payment) {
+      DB.run(
+        `UPDATE branches SET payment_bank_bin=?, payment_account_no=?, payment_account_name=?, payment_qr_enabled=? WHERE id=?`,
+        [payment.bank_bin || null, payment.account_no || null, payment.account_name || null,
+         payment.qr_enabled ? 1 : 0, branchId]
+      );
+    },
 
     // ---- Users ----
     listUsers(branchId) {
@@ -89,12 +96,13 @@
       const seq = Models.nextOrderSequenceToday(order.branch_id);
       const orderNo = Utils.nextOrderNo(seq);
       DB.run(
-        `INSERT INTO orders (branch_id, user_id, order_no, status, subtotal, tax, discount, total, payment_method, cash_received, change_given, note, created_at, paid_at, sync_status)
-         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending')`,
+        `INSERT INTO orders (branch_id, user_id, order_no, status, subtotal, tax, discount, total, payment_method, cash_received, change_given, note, created_at, paid_at, sync_status, table_number, order_source, kitchen_status)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?, 'pending', ?, ?, ?)`,
         [order.branch_id, order.user_id, orderNo, order.status || 'paid',
          order.subtotal, order.tax || 0, order.discount || 0, order.total,
          order.payment_method, order.cash_received || null, order.change_given || null,
-         order.note || '', now, order.status === 'paid' ? now : null]
+         order.note || '', now, order.status === 'paid' ? now : null,
+         order.table_number || null, order.order_source || 'pos', order.kitchen_status || 'pending']
       );
       const orderId = DB.lastInsertId();
       items.forEach((it) => {
@@ -122,6 +130,65 @@
     voidOrder(orderId, reason) {
       DB.run("UPDATE orders SET status='cancelled', note=COALESCE(note,'') || ?, sync_status='pending' WHERE id=?",
         [' [HUỶ: ' + (reason || '') + ']', orderId]);
+    },
+
+    // ---- Kitchen workflow (V2.3) ----
+    listKitchenOrders(branchId, limit) {
+      return DB.exec(`
+        SELECT o.*, u.name AS assigned_name
+        FROM orders o LEFT JOIN users u ON u.id = o.assigned_user_id
+        WHERE o.branch_id=? AND o.status IN ('paid','pending')
+          AND (o.kitchen_status IS NULL OR o.kitchen_status != 'served')
+        ORDER BY o.created_at DESC
+        LIMIT ?
+      `, [branchId, limit || 50]);
+    },
+    listKitchenOrdersByStatus(branchId, status) {
+      // Empty string / null → 'pending' (initial)
+      if (status === 'pending') {
+        return DB.exec(`
+          SELECT o.*, u.name AS assigned_name
+          FROM orders o LEFT JOIN users u ON u.id = o.assigned_user_id
+          WHERE o.branch_id=? AND o.status IN ('paid','pending')
+            AND (o.kitchen_status IS NULL OR o.kitchen_status = 'pending')
+          ORDER BY o.created_at ASC
+        `, [branchId]);
+      }
+      return DB.exec(`
+        SELECT o.*, u.name AS assigned_name
+        FROM orders o LEFT JOIN users u ON u.id = o.assigned_user_id
+        WHERE o.branch_id=? AND o.kitchen_status=?
+        ORDER BY o.created_at ASC
+      `, [branchId, status]);
+    },
+    updateKitchenStatus(orderId, status, userId) {
+      const now = Date.now();
+      let extra = '';
+      const args = [status, orderId];
+      if (status === 'preparing') {
+        extra = ', kitchen_started_at=?, assigned_user_id=COALESCE(assigned_user_id, ?)';
+        args.splice(1, 0, now, userId || null);
+      } else if (status === 'ready') {
+        extra = ', kitchen_ready_at=?';
+        args.splice(1, 0, now);
+      }
+      DB.run(`UPDATE orders SET kitchen_status=?${extra}, sync_status='pending' WHERE id=?`, args);
+      DB.persist();
+    },
+    assignOrder(orderId, userId) {
+      DB.run("UPDATE orders SET assigned_user_id=?, sync_status='pending' WHERE id=?", [userId, orderId]);
+      DB.persist();
+    },
+    markOrderPaid(orderId, method) {
+      DB.run(`UPDATE orders SET status='paid', payment_method=?, paid_at=?, sync_status='pending' WHERE id=?`,
+        [method || 'transfer', Date.now(), orderId]);
+      DB.persist();
+    },
+    countNewKitchenSince(branchId, sinceTs) {
+      const r = DB.exec(`SELECT COUNT(*) AS n FROM orders
+        WHERE branch_id=? AND created_at > ?
+          AND (kitchen_status IS NULL OR kitchen_status='pending')`, [branchId, sinceTs]);
+      return r[0] ? r[0].n : 0;
     },
 
     // ---- Reports ----

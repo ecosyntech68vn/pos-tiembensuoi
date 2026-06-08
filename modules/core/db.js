@@ -70,6 +70,48 @@
     db.exec(sql);
   }
 
+  // ---- Migration runner ----
+  function currentSchemaVersion() {
+    try {
+      const r = db.exec("SELECT MAX(version) AS v FROM schema_version");
+      return (r[0] && r[0].values[0][0]) || 1;
+    } catch (e) { return 1; }
+  }
+  function recordVersion(v) {
+    db.run("INSERT OR IGNORE INTO schema_version (version, applied_at) VALUES (?, ?)", [v, Date.now()]);
+  }
+  function hasColumn(table, col) {
+    try {
+      const r = db.exec("PRAGMA table_info(" + table + ")");
+      if (!r[0]) return false;
+      return r[0].values.some(row => row[1] === col);
+    } catch (e) { return false; }
+  }
+  function safeAlter(table, col, def) {
+    if (hasColumn(table, col)) return;
+    try { db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${def}`); }
+    catch (e) { console.warn('[migrate]', table, col, e.message); }
+  }
+  function runMigrations() {
+    const cur = currentSchemaVersion();
+    // ---- v2: kitchen workflow + payment QR ----
+    if (cur < 2) {
+      console.log('[migrate] v1 → v2');
+      safeAlter('orders', 'table_number',         'INTEGER');
+      safeAlter('orders', 'order_source',         "TEXT DEFAULT 'pos'");
+      safeAlter('orders', 'assigned_user_id',     'INTEGER');
+      safeAlter('orders', 'kitchen_status',       "TEXT DEFAULT 'pending'");
+      safeAlter('orders', 'kitchen_started_at',   'INTEGER');
+      safeAlter('orders', 'kitchen_ready_at',     'INTEGER');
+      safeAlter('orders', 'payment_qr_url',       'TEXT');
+      safeAlter('branches', 'payment_bank_bin',      'TEXT');
+      safeAlter('branches', 'payment_account_no',    'TEXT');
+      safeAlter('branches', 'payment_account_name',  'TEXT');
+      safeAlter('branches', 'payment_qr_enabled',    'INTEGER DEFAULT 0');
+      recordVersion(2);
+    }
+  }
+
   async function seedIfEmpty() {
     const r = db.exec("SELECT COUNT(*) AS n FROM branches");
     const n = r[0] ? r[0].values[0][0] : 0;
@@ -158,6 +200,9 @@
       const seeded = await seedIfEmpty();
       EventBus.emit('db:loaded', { fromStorage: false, seeded });
     }
+    // Run migrations (idempotent)
+    runMigrations();
+    await persist();
     global.dbInstance = db;
     return db;
   }
