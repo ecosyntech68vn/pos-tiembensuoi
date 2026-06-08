@@ -1,0 +1,1285 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#16a34a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="assets/icons/logo.svg" />
+  <link rel="apple-touch-icon" href="assets/icons/icon-192.svg" />
+  <title>POS Cafe</title>
+
+  <!-- Tailwind CDN (Phase 1; Phase 3 build offline) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: {
+        colors: {
+          brand: { DEFAULT: '#16a34a', dark: '#15803d', light: '#22c55e' },
+          gold:  { DEFAULT: '#d4af37' }
+        }
+      }}
+    };
+  </script>
+
+  <!-- sql.js -->
+  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
+
+  <!-- Alpine.js (defer) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
+
+  <!-- Config (load early) -->
+  <script src="config/business-rules.js"></script>
+  <script src="config/payment-methods.js"></script>
+  <script src="config/printer.js"></script>
+  <script src="config/notification.js"></script>
+
+  <!-- Core modules -->
+  <script src="modules/core/utils.js"></script>
+  <script src="modules/core/event-bus.js"></script>
+  <script src="modules/core/db.js"></script>
+  <script src="modules/core/models.js"></script>
+
+  <!-- Auth -->
+  <script src="modules/auth/session.js"></script>
+  <script src="modules/auth/permissions.js"></script>
+
+  <!-- POS -->
+  <script src="modules/pos/cart.js"></script>
+
+  <!-- Dashboard (V2) -->
+  <script src="modules/dashboard/dashboard.js"></script>
+
+  <!-- Import (V2) -->
+  <script src="modules/import/csv-parser.js"></script>
+  <script src="modules/import/import-wizard.js"></script>
+
+  <!-- Sync -->
+  <script src="modules/sync/gas-client.js"></script>
+  <script src="modules/sync/sync-queue.js"></script>
+  <script src="modules/sync/telegram-bot.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    html, body { height: 100%; }
+    body { -webkit-tap-highlight-color: transparent; touch-action: manipulation; overscroll-behavior: contain; }
+    .btn { @apply inline-flex items-center justify-center font-medium rounded-lg transition active:scale-95 select-none; }
+    .btn-primary { @apply btn bg-brand text-white hover:bg-brand-dark; }
+    .btn-ghost { @apply btn bg-gray-100 text-gray-800 hover:bg-gray-200; }
+    .btn-danger { @apply btn bg-red-600 text-white hover:bg-red-700; }
+    .tile { @apply bg-white rounded-xl shadow-sm border border-gray-200 p-3 hover:shadow-md hover:border-brand cursor-pointer transition; }
+    .input { @apply border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand; }
+    .pin-key { @apply h-16 rounded-xl bg-gray-100 hover:bg-gray-200 active:scale-95 text-2xl font-semibold; }
+    .nav-pill { @apply px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap; }
+    .nav-pill-active { @apply bg-brand text-white; }
+    .nav-pill-idle { @apply text-gray-700 hover:bg-gray-100; }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+  <div x-data="posApp()" x-init="boot()" x-cloak class="min-h-screen flex flex-col">
+
+    <!-- ===== BOOT SPLASH ===== -->
+    <template x-if="!booted">
+      <div class="flex-1 flex items-center justify-center">
+        <div class="text-center">
+          <img src="assets/icons/logo.svg" class="w-20 h-20 mx-auto mb-3" />
+          <div class="text-lg font-semibold text-brand" x-text="bootMsg"></div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===== LOGIN ===== -->
+    <template x-if="booted && !user">
+      <div class="flex-1 flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-white rounded-2xl shadow-lg p-6">
+          <div class="text-center mb-4">
+            <img :src="shop?.logo_data_url || 'assets/icons/logo.svg'" class="w-16 h-16 mx-auto" />
+            <div class="mt-2 text-xl font-semibold" x-text="shop?.name || 'Quán Mẫu'"></div>
+            <div class="text-sm text-gray-500">Nhập mã PIN 4 số</div>
+          </div>
+          <div class="flex justify-center gap-2 my-4">
+            <template x-for="i in 4" :key="i">
+              <div class="w-12 h-12 border-2 rounded-lg flex items-center justify-center text-xl"
+                   :class="pin.length >= i ? 'border-brand bg-brand/10' : 'border-gray-300'">
+                <span x-text="pin.length >= i ? '•' : ''"></span>
+              </div>
+            </template>
+          </div>
+          <div class="grid grid-cols-3 gap-2">
+            <template x-for="k in ['1','2','3','4','5','6','7','8','9']" :key="k">
+              <button @click="pressPin(k)" class="pin-key" x-text="k"></button>
+            </template>
+            <button @click="pin=''" class="pin-key text-base">Xoá</button>
+            <button @click="pressPin('0')" class="pin-key">0</button>
+            <button @click="submitPin()" class="pin-key bg-brand text-white">OK</button>
+          </div>
+          <div class="text-center text-red-600 mt-3 text-sm h-5" x-text="loginError"></div>
+          <div class="text-center text-xs text-gray-400 mt-4">
+            Mặc định: Chủ 1234 · NV 5678 — đổi ngay sau lần đầu
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ===== MAIN SHELL ===== -->
+    <template x-if="booted && user">
+      <div class="flex-1 flex flex-col">
+
+        <!-- Header -->
+        <header class="bg-white border-b sticky top-0 z-20">
+          <div class="px-3 py-2 flex items-center gap-3">
+            <img :src="shop?.logo_data_url || 'assets/icons/logo.svg'" class="w-9 h-9 rounded" />
+            <div class="flex-1 min-w-0">
+              <div class="font-semibold truncate" x-text="shop?.name || 'Quán Mẫu'"></div>
+              <div class="text-xs text-gray-500 truncate">
+                <span x-text="user.name"></span>
+                · <span x-text="user.role === 'owner' ? 'Chủ quán' : 'Nhân viên'"></span>
+                · <span :class="online ? 'text-green-600' : 'text-orange-600'" x-text="online ? '● Online' : '● Offline'"></span>
+              </div>
+            </div>
+            <button @click="logout()" class="text-sm text-gray-600 hover:text-red-600">Thoát</button>
+          </div>
+          <nav class="px-3 pb-2 flex gap-1 overflow-x-auto">
+            <button @click="goView('dashboard')" :class="view==='dashboard'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">🏠 Dashboard</button>
+            <button @click="goView('pos')" :class="view==='pos'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">🛒 POS Bán hàng</button>
+            <template x-if="user.role==='owner'">
+              <button @click="goView('import')" :class="view==='import'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">📥 Import CSV</button>
+            </template>
+            <button @click="goView('orders')" :class="view==='orders'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">🧾 Đơn</button>
+            <button @click="goView('reports')" :class="view==='reports'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">📊 Báo cáo</button>
+            <template x-if="user.role==='owner'">
+              <button @click="goView('menu')" :class="view==='menu'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">📝 Menu</button>
+            </template>
+            <template x-if="user.role==='owner'">
+              <button @click="goView('inventory')" :class="view==='inventory'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">📦 Kho</button>
+            </template>
+            <template x-if="user.role==='owner'">
+              <button @click="goView('settings')" :class="view==='settings'?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">⚙️ Cài đặt</button>
+            </template>
+          </nav>
+        </header>
+
+        <!-- ===== VIEW: DASHBOARD (V2 default landing) ===== -->
+        <main x-show="view==='dashboard'" class="flex-1 p-3 space-y-3">
+          <!-- 6 KPI cards -->
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <div class="bg-white border rounded-xl p-4">
+              <div class="text-xs text-gray-500">💰 Doanh thu hôm nay</div>
+              <div class="text-2xl font-bold text-brand mt-1" x-text="formatVND(dash.today.revenue)"></div>
+              <div class="text-xs mt-1" :class="dash.today.delta_pct>=0?'text-green-600':'text-red-600'">
+                <span x-text="(dash.today.delta_pct>=0?'▲ +':'▼ ') + dash.today.delta_pct + '%'"></span>
+                vs hôm qua
+              </div>
+            </div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="text-xs text-gray-500">📦 Tồn kho cảnh báo</div>
+              <div class="text-2xl font-bold mt-1" :class="dash.lowStock.length>0?'text-orange-600':'text-green-600'" x-text="dash.lowStock.length"></div>
+              <div class="text-xs text-gray-500 mt-1">nguyên liệu < min</div>
+            </div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="text-xs text-gray-500">📊 Doanh thu 7 ngày</div>
+              <div class="text-2xl font-bold text-brand mt-1" x-text="formatVND(dash.last7.revenue)"></div>
+              <div class="text-xs text-gray-500 mt-1">TB <span x-text="formatVND(dash.last7.avg_per_day)"></span>/ngày</div>
+            </div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="text-xs text-gray-500">💸 Chi phí NL 30 ngày</div>
+              <div class="text-2xl font-bold mt-1" x-text="formatVND(dash.cost30)"></div>
+              <div class="text-xs text-gray-500 mt-1">tổng tiền nhập</div>
+            </div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="text-xs text-gray-500">💵 Lợi nhuận gộp 30 ngày</div>
+              <div class="text-2xl font-bold mt-1" :class="dash.profit30.gross>=0?'text-brand':'text-red-600'" x-text="formatVND(dash.profit30.gross)"></div>
+              <div class="text-xs text-gray-500 mt-1">biên <span x-text="dash.profit30.margin_pct"></span>%</div>
+            </div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="text-xs text-gray-500">⚠ Bất thường</div>
+              <div class="text-2xl font-bold mt-1" :class="dash.anomalies.length>0?'text-orange-600':'text-green-600'" x-text="dash.anomalies.length"></div>
+              <div class="text-xs text-gray-500 mt-1">cần để ý</div>
+            </div>
+          </div>
+
+          <!-- Charts row -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="bg-white border rounded-xl p-4">
+              <div class="font-semibold mb-2">Doanh thu 30 ngày qua</div>
+              <div x-html="lineChartHtml"></div>
+            </div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="font-semibold mb-2">Top 5 món bán chạy 7 ngày</div>
+              <div x-html="topChartHtml" x-show="dash.topItems.length>0"></div>
+              <div x-show="dash.topItems.length===0" class="text-sm text-gray-400">Chưa có dữ liệu — bán hoặc import 1 đơn để hiển thị</div>
+            </div>
+          </div>
+
+          <!-- Low stock + anomalies -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+            <div class="bg-white border rounded-xl p-4">
+              <div class="font-semibold mb-2">Tồn kho cảnh báo (top 10)</div>
+              <table class="w-full text-sm" x-show="dash.lowStock.length>0">
+                <thead class="text-left text-gray-500 border-b">
+                  <tr><th class="py-1">Nguyên liệu</th><th>Tồn</th><th>Tiêu/ngày</th><th>Còn ~</th></tr>
+                </thead>
+                <tbody>
+                  <template x-for="l in dash.lowStock.slice(0,10)" :key="l.id">
+                    <tr class="border-b">
+                      <td class="py-1" x-text="l.name"></td>
+                      <td><span x-text="l.stock_current"></span> <span class="text-xs text-gray-500" x-text="l.unit"></span></td>
+                      <td x-text="l.burn_per_day"></td>
+                      <td :class="(l.days_left??99)<3?'text-red-600 font-semibold':'text-gray-700'" x-text="l.days_left!=null?l.days_left+' ngày':'—'"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <div x-show="dash.lowStock.length===0" class="text-sm text-green-600">✓ Tồn kho ổn định</div>
+            </div>
+            <div class="bg-white border rounded-xl p-4">
+              <div class="font-semibold mb-2">Bất thường gần đây</div>
+              <div class="space-y-2" x-show="dash.anomalies.length>0">
+                <template x-for="(a,idx) in dash.anomalies" :key="idx">
+                  <div class="border rounded-lg p-2 text-sm"
+                       :class="a.level==='high'?'border-red-300 bg-red-50':'border-orange-300 bg-orange-50'">
+                    <div class="font-medium"><span x-text="a.icon"></span> <span x-text="a.title"></span></div>
+                    <div class="text-xs text-gray-600 mt-1" x-text="a.detail"></div>
+                  </div>
+                </template>
+              </div>
+              <div x-show="dash.anomalies.length===0" class="text-sm text-green-600">✓ Không có bất thường</div>
+            </div>
+          </div>
+        </main>
+
+        <!-- ===== VIEW: IMPORT CSV (owner only) ===== -->
+        <main x-show="view==='import' && user.role==='owner'" class="flex-1 p-3">
+          <div class="bg-white border rounded-xl p-4">
+            <div class="font-semibold mb-3">Import doanh thu từ POS khác</div>
+
+            <!-- Stepper -->
+            <div class="flex gap-2 mb-4 text-xs">
+              <template x-for="(label, idx) in ['1. Upload CSV','2. Nhận diện POS','3. Map cột','4. Xác nhận']" :key="idx">
+                <div :class="impStep===idx+1?'bg-brand text-white':impStep>idx+1?'bg-green-100 text-green-700':'bg-gray-100 text-gray-500'"
+                     class="px-2 py-1 rounded">
+                  <span x-text="label"></span>
+                </div>
+              </template>
+            </div>
+
+            <!-- Step 1: Upload -->
+            <div x-show="impStep===1">
+              <div class="text-sm text-gray-600 mb-2">Chọn file CSV xuất từ KiotViet / Sapo / iPos / Misa CukCuk (hoặc POS khác).</div>
+              <label class="btn-primary px-4 py-2 cursor-pointer inline-block">
+                Chọn file CSV
+                <input type="file" accept=".csv,text/csv" class="hidden" @change="impUpload($event)" />
+              </label>
+              <div class="text-xs text-gray-500 mt-2" x-text="impMsg"></div>
+            </div>
+
+            <!-- Step 2: Detect -->
+            <div x-show="impStep===2">
+              <div class="text-sm mb-3">Đã đọc <b x-text="impRows.length"></b> dòng, <b x-text="impHeaders.length"></b> cột.</div>
+              <div class="text-sm mb-2">POS phát hiện: <b x-text="impPresetName"></b>
+                <span class="text-xs text-gray-500">(điểm khớp <span x-text="impDetectScore"></span>/<span x-text="impDetectTotal"></span>)</span>
+              </div>
+              <div class="text-sm mb-2">Hoặc chọn thủ công:</div>
+              <select class="input" x-model="impPresetKey" @change="impApplyPreset()">
+                <template x-for="(p,k) in impPresets" :key="k">
+                  <option :value="k" x-text="p.name"></option>
+                </template>
+              </select>
+              <div class="flex gap-2 mt-4">
+                <button class="btn-ghost px-3 py-2 text-sm" @click="impStep=1">← Lại</button>
+                <button class="btn-primary px-4 py-2 text-sm" @click="impStep=3">Tiếp →</button>
+              </div>
+            </div>
+
+            <!-- Step 3: Map columns -->
+            <div x-show="impStep===3">
+              <div class="text-sm text-gray-600 mb-3">Kéo / chọn cột CSV cho từng trường. Trường <b>*</b> bắt buộc.</div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                <template x-for="field in impFieldList" :key="field.key">
+                  <div class="flex items-center gap-2 border-b py-1">
+                    <div class="w-32 text-gray-600">
+                      <span x-text="field.label"></span>
+                      <span class="text-red-600" x-show="field.required">*</span>
+                    </div>
+                    <select class="input flex-1" x-model="impColumnMap[field.key]">
+                      <option value="">— bỏ qua —</option>
+                      <template x-for="h in impHeaders" :key="h"><option :value="h" x-text="h"></option></template>
+                    </select>
+                  </div>
+                </template>
+              </div>
+              <div class="mt-3 text-xs text-gray-500">Preview 3 dòng đầu sau map:</div>
+              <div class="overflow-x-auto mt-1">
+                <table class="text-xs border w-full">
+                  <thead><tr class="bg-gray-50">
+                    <template x-for="f in impFieldList" :key="f.key"><th class="border px-1" x-text="f.label"></th></template>
+                  </tr></thead>
+                  <tbody>
+                    <template x-for="(row,idx) in impPreviewRows()" :key="idx">
+                      <tr>
+                        <template x-for="f in impFieldList" :key="f.key">
+                          <td class="border px-1" x-text="row[f.key] ?? ''"></td>
+                        </template>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+              <div class="flex gap-2 mt-4">
+                <button class="btn-ghost px-3 py-2 text-sm" @click="impStep=2">← Lại</button>
+                <button class="btn-primary px-4 py-2 text-sm" @click="impPrepareConfirm()">Tiếp →</button>
+              </div>
+            </div>
+
+            <!-- Step 4: Confirm + import -->
+            <div x-show="impStep===4">
+              <div class="text-sm mb-2">Sẽ import: <b x-text="impOrders.length"></b> đơn (<b x-text="impItemCount"></b> items)</div>
+              <div class="text-sm mb-2">Trùng <b x-text="impDuplicates"></b> đơn — sẽ bỏ qua.</div>
+              <div class="text-sm mb-3" x-show="impIssues.length>0">
+                <div class="text-orange-600 font-medium">Cảnh báo:</div>
+                <ul class="list-disc list-inside text-xs text-gray-600">
+                  <template x-for="(iss,idx) in impIssues.slice(0,5)" :key="idx">
+                    <li><span x-text="iss.msg"></span></li>
+                  </template>
+                </ul>
+              </div>
+              <label class="flex items-center gap-2 text-sm">
+                <input type="checkbox" x-model="impDoDeduct" />
+                Auto-trừ kho theo công thức (recipes)
+              </label>
+              <div class="flex gap-2 mt-4">
+                <button class="btn-ghost px-3 py-2 text-sm" @click="impStep=3">← Lại</button>
+                <button class="btn-primary px-4 py-2 text-sm" @click="impExecute()" :disabled="impBusy">
+                  <span x-show="!impBusy">✓ Xác nhận import</span>
+                  <span x-show="impBusy">Đang import...</span>
+                </button>
+                <button class="btn-ghost px-3 py-2 text-sm" @click="impReset()">Huỷ</button>
+              </div>
+              <div class="text-sm mt-3" x-show="impResult">
+                <div class="text-green-600">✓ Đã import <b x-text="impResult?.imported"></b> đơn (<span x-text="impResult?.skipped"></span> bỏ qua trùng)</div>
+                <div class="text-xs text-gray-500" x-show="impResult?.deduct_lines?.length>0">
+                  Trừ kho: <span x-text="impResult.deduct_lines.length"></span> dòng nguyên liệu
+                </div>
+              </div>
+            </div>
+          </div>
+        </main>
+
+        <!-- ===== VIEW: POS ===== -->
+        <main x-show="view==='pos'" class="flex-1 grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-3 p-3">
+
+          <!-- Menu column -->
+          <section class="flex flex-col min-h-0">
+            <div class="flex gap-1 overflow-x-auto mb-2">
+              <button @click="catFilter=0" :class="catFilter===0?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">Tất cả</button>
+              <template x-for="c in categories" :key="c.id">
+                <button @click="catFilter=c.id" :class="catFilter===c.id?'nav-pill nav-pill-active':'nav-pill nav-pill-idle'">
+                  <span x-text="c.icon"></span> <span x-text="c.name"></span>
+                </button>
+              </template>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 overflow-y-auto pb-3">
+              <template x-for="p in filteredProducts()" :key="p.id">
+                <div class="tile flex flex-col" @click="onProductClick(p)">
+                  <div class="text-3xl text-center" x-text="p.icon || '🥤'"></div>
+                  <div class="font-medium text-sm leading-tight mt-1 line-clamp-2" x-text="p.name"></div>
+                  <div class="text-brand font-semibold mt-1" x-text="formatVND(p.base_price)"></div>
+                </div>
+              </template>
+            </div>
+          </section>
+
+          <!-- Cart column -->
+          <aside class="bg-white rounded-xl border border-gray-200 flex flex-col min-h-0">
+            <div class="p-3 border-b flex items-center justify-between">
+              <div class="font-semibold">Giỏ hàng (<span x-text="cart.count()"></span>)</div>
+              <button class="text-xs text-red-600" @click="clearCart()">Xoá hết</button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-2">
+              <template x-if="cart.items.length===0">
+                <div class="text-center text-gray-400 py-12 text-sm">Chọn sản phẩm để bán...</div>
+              </template>
+              <template x-for="(it,idx) in cart.items" :key="idx">
+                <div class="border-b py-2">
+                  <div class="flex justify-between items-start gap-2">
+                    <div class="flex-1">
+                      <div class="font-medium text-sm" x-text="(it.icon||'') + ' ' + it.product_name"></div>
+                      <div class="text-xs text-gray-500" x-text="it.variants.map(v=>v.name).join(' · ')"></div>
+                    </div>
+                    <button class="text-red-500 text-sm" @click="cart.remove(idx)">×</button>
+                  </div>
+                  <div class="flex justify-between items-center mt-1">
+                    <div class="flex items-center gap-1">
+                      <button @click="cart.dec(idx)" class="w-7 h-7 rounded bg-gray-100">−</button>
+                      <span class="w-8 text-center text-sm" x-text="it.qty"></span>
+                      <button @click="cart.inc(idx)" class="w-7 h-7 rounded bg-gray-100">+</button>
+                    </div>
+                    <div class="font-semibold text-sm" x-text="formatVND(it.line_total)"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="p-3 border-t">
+              <div class="text-sm space-y-1">
+                <div class="flex justify-between"><span>Tạm tính</span><span x-text="formatVND(cart.subtotal())"></span></div>
+                <div class="flex justify-between text-gray-500"><span>VAT (<span x-text="vatPct"></span>%)</span><span x-text="formatVND(cart.tax(vatPct))"></span></div>
+                <div class="flex justify-between items-center">
+                  <span>Giảm giá</span>
+                  <input type="number" min="0" :max="cart.subtotal()" x-model.number="cart.discount" class="input w-24 text-right py-1" />
+                </div>
+                <div class="flex justify-between text-lg font-bold text-brand pt-1"><span>TỔNG</span><span x-text="formatVND(cart.total(vatPct))"></span></div>
+              </div>
+              <button class="btn-primary w-full py-3 mt-3 text-lg" :disabled="cart.items.length===0" @click="openCheckout()">
+                Thanh toán
+              </button>
+            </div>
+          </aside>
+        </main>
+
+        <!-- ===== VIEW: ORDERS ===== -->
+        <main x-show="view==='orders'" class="flex-1 p-3">
+          <div class="bg-white rounded-xl border p-3">
+            <div class="flex justify-between mb-3">
+              <div class="font-semibold">Đơn gần đây (20)</div>
+              <button class="text-sm text-brand" @click="loadOrders()">Tải lại</button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead class="text-left text-gray-500 border-b">
+                  <tr><th class="py-2">Mã đơn</th><th>Giờ</th><th>NV</th><th>Tổng</th><th>TT</th><th>Đồng bộ</th></tr>
+                </thead>
+                <tbody>
+                  <template x-for="o in orders" :key="o.id">
+                    <tr class="border-b">
+                      <td class="py-2 font-mono" x-text="o.order_no"></td>
+                      <td x-text="fmtTime(o.created_at)"></td>
+                      <td x-text="userName(o.user_id)"></td>
+                      <td class="font-semibold" x-text="formatVND(o.total)"></td>
+                      <td>
+                        <span class="text-xs px-2 py-0.5 rounded"
+                              :class="o.status==='paid'?'bg-green-100 text-green-700':o.status==='cancelled'?'bg-red-100 text-red-700':'bg-gray-100'"
+                              x-text="o.status"></span>
+                      </td>
+                      <td>
+                        <span class="text-xs"
+                              :class="o.sync_status==='synced'?'text-green-600':o.sync_status==='failed'?'text-red-600':'text-orange-600'"
+                              x-text="o.sync_status"></span>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </main>
+
+        <!-- ===== VIEW: REPORTS ===== -->
+        <main x-show="view==='reports'" class="flex-1 p-3 space-y-3">
+          <div class="bg-white rounded-xl border p-4">
+            <div class="font-semibold mb-2">Doanh thu hôm nay</div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div class="rounded-lg bg-brand/10 p-3">
+                <div class="text-xs text-gray-600">Số đơn</div>
+                <div class="text-2xl font-bold text-brand" x-text="todayStats.orders"></div>
+              </div>
+              <div class="rounded-lg bg-brand/10 p-3">
+                <div class="text-xs text-gray-600">Doanh thu</div>
+                <div class="text-2xl font-bold text-brand" x-text="formatVND(todayStats.revenue)"></div>
+              </div>
+              <div class="rounded-lg bg-gray-50 p-3">
+                <div class="text-xs text-gray-600">Tiền mặt</div>
+                <div class="text-lg font-semibold" x-text="formatVND(todayStats.cash)"></div>
+              </div>
+              <div class="rounded-lg bg-gray-50 p-3">
+                <div class="text-xs text-gray-600">QR / Thẻ</div>
+                <div class="text-lg font-semibold" x-text="formatVND(todayStats.qr + todayStats.card)"></div>
+              </div>
+            </div>
+          </div>
+          <div class="bg-white rounded-xl border p-4">
+            <div class="font-semibold mb-2">Top bán chạy hôm nay</div>
+            <table class="w-full text-sm">
+              <thead class="text-left text-gray-500 border-b">
+                <tr><th class="py-2">#</th><th>Sản phẩm</th><th>SL</th><th>Doanh thu</th></tr>
+              </thead>
+              <tbody>
+                <template x-for="(b,idx) in todayBest" :key="idx">
+                  <tr class="border-b">
+                    <td class="py-2" x-text="idx+1"></td>
+                    <td x-text="b.product_name"></td>
+                    <td x-text="b.qty"></td>
+                    <td x-text="formatVND(b.revenue)"></td>
+                  </tr>
+                </template>
+                <tr x-show="todayBest.length===0"><td colspan="4" class="text-center text-gray-400 py-4">Chưa có đơn nào hôm nay</td></tr>
+              </tbody>
+            </table>
+            <div class="flex gap-2 mt-3">
+              <button class="btn-ghost px-3 py-2" @click="exportTodayCSV()">⬇ Xuất CSV</button>
+              <button class="btn-ghost px-3 py-2" @click="sendTelegramDigest()" x-show="user.role==='owner'">📨 Gửi Telegram</button>
+            </div>
+          </div>
+        </main>
+
+        <!-- ===== VIEW: MENU (owner) ===== -->
+        <main x-show="view==='menu' && user.role==='owner'" class="flex-1 p-3 space-y-3">
+          <div class="bg-white rounded-xl border p-3">
+            <div class="flex justify-between mb-3">
+              <div class="font-semibold">Quản lý menu (<span x-text="products.length"></span> SP)</div>
+              <button class="btn-primary px-3 py-2 text-sm" @click="openProductEdit(null)">+ Thêm SP</button>
+            </div>
+            <table class="w-full text-sm">
+              <thead class="text-left text-gray-500 border-b">
+                <tr><th class="py-2">SP</th><th>Nhóm</th><th>Giá gốc</th><th></th></tr>
+              </thead>
+              <tbody>
+                <template x-for="p in products" :key="p.id">
+                  <tr class="border-b">
+                    <td class="py-2"><span x-text="p.icon"></span> <span x-text="p.name"></span></td>
+                    <td x-text="categoryName(p.category_id)"></td>
+                    <td x-text="formatVND(p.base_price)"></td>
+                    <td><button class="text-brand text-sm" @click="openProductEdit(p)">Sửa</button></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </main>
+
+        <!-- ===== VIEW: INVENTORY (owner) ===== -->
+        <main x-show="view==='inventory' && user.role==='owner'" class="flex-1 p-3 space-y-3">
+          <div class="bg-white rounded-xl border p-3">
+            <div class="flex justify-between mb-3">
+              <div class="font-semibold">Nguyên liệu (<span x-text="ingredients.length"></span>)</div>
+              <div class="text-xs text-orange-600" x-show="lowStock.length>0">
+                ⚠ <span x-text="lowStock.length"></span> nguyên liệu sắp hết
+              </div>
+            </div>
+            <table class="w-full text-sm">
+              <thead class="text-left text-gray-500 border-b">
+                <tr><th class="py-2">Tên</th><th>Tồn</th><th>Min</th><th>Đơn giá</th><th>Nhà cung cấp</th><th></th></tr>
+              </thead>
+              <tbody>
+                <template x-for="i in ingredients" :key="i.id">
+                  <tr class="border-b" :class="i.stock_current < i.stock_min ? 'bg-orange-50' : ''">
+                    <td class="py-2" x-text="i.name"></td>
+                    <td><span x-text="i.stock_current"></span> <span class="text-xs text-gray-500" x-text="i.unit"></span></td>
+                    <td x-text="i.stock_min"></td>
+                    <td x-text="formatVND(i.cost_per_unit)"></td>
+                    <td x-text="i.supplier"></td>
+                    <td><button class="text-brand text-sm" @click="openInventoryTx(i)">+ Nhập/Xuất</button></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </main>
+
+        <!-- ===== VIEW: SETTINGS (owner) ===== -->
+        <main x-show="view==='settings' && user.role==='owner'" class="flex-1 p-3 space-y-3">
+          <!-- Shop info -->
+          <div class="bg-white rounded-xl border p-4">
+            <div class="font-semibold mb-3">Thông tin quán</div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              <label class="block">Tên quán<input class="input w-full mt-1" x-model="shop.name" /></label>
+              <label class="block">Số điện thoại<input class="input w-full mt-1" x-model="shop.phone" /></label>
+              <label class="block md:col-span-2">Địa chỉ<input class="input w-full mt-1" x-model="shop.address" /></label>
+              <label class="block md:col-span-2">Slogan<input class="input w-full mt-1" x-model="shop.slogan" /></label>
+              <label class="block">VAT %<input type="number" class="input w-full mt-1" x-model.number="shop.tax_rate" /></label>
+              <label class="block">Làm tròn (đồng)<input type="number" class="input w-full mt-1" x-model.number="shop.round_to" /></label>
+              <label class="block md:col-span-2">Logo (PNG/JPG ≤ 200KB)
+                <input type="file" accept="image/*" class="mt-1 block" @change="uploadLogo($event)" />
+              </label>
+              <label class="block md:col-span-2">License cấp cho (tên quán/chủ)<input class="input w-full mt-1" x-model="shop.license_to" /></label>
+            </div>
+            <button class="btn-primary px-4 py-2 mt-3 text-sm" @click="saveShop()">Lưu thông tin quán</button>
+          </div>
+
+          <!-- Users -->
+          <div class="bg-white rounded-xl border p-4">
+            <div class="font-semibold mb-3">Người dùng & PIN</div>
+            <table class="w-full text-sm mb-3">
+              <thead class="text-left text-gray-500 border-b"><tr><th class="py-2">Tên</th><th>Vai trò</th><th></th></tr></thead>
+              <tbody>
+                <template x-for="u in users" :key="u.id">
+                  <tr class="border-b">
+                    <td class="py-2" x-text="u.name"></td>
+                    <td x-text="u.role==='owner'?'Chủ quán':'Nhân viên'"></td>
+                    <td>
+                      <button class="text-brand text-sm mr-2" @click="changePinFor(u)">Đổi PIN</button>
+                      <button class="text-red-600 text-sm" @click="deactivate(u)" x-show="u.id!==user.id">Xoá</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <div class="border-t pt-3">
+              <div class="text-sm font-medium mb-2">Thêm nhân viên</div>
+              <div class="flex gap-2 flex-wrap">
+                <input class="input" placeholder="Tên" x-model="newUser.name" />
+                <input class="input" placeholder="PIN 4 số" maxlength="4" x-model="newUser.pin" />
+                <select class="input" x-model="newUser.role">
+                  <option value="staff">Nhân viên</option>
+                  <option value="owner">Chủ quán</option>
+                </select>
+                <button class="btn-primary px-3 py-2 text-sm" @click="addUser()">Thêm</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sync GAS -->
+          <div class="bg-white rounded-xl border p-4">
+            <div class="font-semibold mb-3">Đồng bộ Google Sheets (GAS)</div>
+            <div class="text-xs text-gray-500 mb-2">Dán Web App URL của Google Apps Script (đã deploy "Anyone").</div>
+            <input class="input w-full mb-2" placeholder="https://script.google.com/macros/s/.../exec" x-model="gasUrl" />
+            <input class="input w-full mb-2" placeholder="API key (tuỳ chọn, khớp với GAS)" x-model="gasKey" />
+            <div class="flex gap-2">
+              <button class="btn-primary px-3 py-2 text-sm" @click="saveGAS()">Lưu</button>
+              <button class="btn-ghost px-3 py-2 text-sm" @click="testGAS()">Test ping</button>
+              <button class="btn-ghost px-3 py-2 text-sm" @click="syncNow()">Đồng bộ ngay</button>
+            </div>
+            <div class="text-xs text-gray-500 mt-2" x-text="gasMsg"></div>
+          </div>
+
+          <!-- Telegram -->
+          <div class="bg-white rounded-xl border p-4">
+            <div class="font-semibold mb-3">Telegram báo doanh thu</div>
+            <input class="input w-full mb-2" placeholder="Bot token (từ @BotFather)" x-model="tgToken" />
+            <input class="input w-full mb-2" placeholder="Chat ID (cá nhân hoặc group)" x-model="tgChat" />
+            <div class="flex gap-2">
+              <button class="btn-primary px-3 py-2 text-sm" @click="saveTG()">Lưu</button>
+              <button class="btn-ghost px-3 py-2 text-sm" @click="testTG()">Gửi tin nhắn test</button>
+            </div>
+            <div class="text-xs text-gray-500 mt-2" x-text="tgMsg"></div>
+          </div>
+
+          <!-- Backup -->
+          <div class="bg-white rounded-xl border p-4">
+            <div class="font-semibold mb-3">Sao lưu & Phục hồi</div>
+            <div class="text-xs text-gray-500 mb-3">Khuyến nghị: tải file .db hàng ngày, lưu Google Drive hoặc USB.</div>
+            <div class="flex gap-2 flex-wrap">
+              <button class="btn-primary px-3 py-2 text-sm" @click="backupDB()">⬇ Tải file backup</button>
+              <label class="btn-ghost px-3 py-2 text-sm cursor-pointer">
+                ⬆ Phục hồi từ file
+                <input type="file" accept=".db" class="hidden" @change="restoreDB($event)" />
+              </label>
+              <button class="btn-danger px-3 py-2 text-sm" @click="resetData()">⚠ Reset toàn bộ dữ liệu</button>
+            </div>
+          </div>
+        </main>
+
+        <!-- ===== VARIANT PICKER MODAL ===== -->
+        <div x-show="variantPicker.open" class="fixed inset-0 bg-black/50 z-30 flex items-end sm:items-center justify-center p-2" @click.self="variantPicker.open=false">
+          <div class="bg-white rounded-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div class="p-4 border-b">
+              <div class="font-semibold text-lg" x-text="variantPicker.product?.name"></div>
+              <div class="text-brand" x-text="formatVND(variantPickerTotal())"></div>
+            </div>
+            <div class="p-4 space-y-4">
+              <template x-for="g in variantPicker.groups" :key="g.id">
+                <div>
+                  <div class="text-sm font-medium mb-2">
+                    <span x-text="g.name"></span>
+                    <span class="text-xs text-red-600" x-show="g.required">*</span>
+                  </div>
+                  <div class="flex flex-wrap gap-2">
+                    <template x-for="v in g.variants" :key="v.id">
+                      <button @click="toggleVariant(g,v)"
+                              :class="isVariantSelected(g,v)?'bg-brand text-white border-brand':'bg-white text-gray-700 border-gray-300'"
+                              class="border rounded-lg px-3 py-2 text-sm">
+                        <span x-text="v.name"></span>
+                        <span class="text-xs opacity-70" x-show="v.price_modifier>0">+<span x-text="formatVND(v.price_modifier)"></span></span>
+                      </button>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="p-4 border-t flex gap-2">
+              <button class="btn-ghost flex-1 py-3" @click="variantPicker.open=false">Huỷ</button>
+              <button class="btn-primary flex-1 py-3" @click="confirmVariantPick()" :disabled="!variantPickerValid()">Thêm vào giỏ</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== CHECKOUT MODAL ===== -->
+        <div x-show="checkout.open" class="fixed inset-0 bg-black/50 z-30 flex items-center justify-center p-2" @click.self="checkout.open=false">
+          <div class="bg-white rounded-xl w-full max-w-md">
+            <div class="p-4 border-b">
+              <div class="font-semibold text-lg">Thanh toán</div>
+              <div class="text-2xl font-bold text-brand" x-text="formatVND(cart.total(vatPct))"></div>
+            </div>
+            <div class="p-4 space-y-3">
+              <div>
+                <div class="text-sm font-medium mb-2">Phương thức</div>
+                <div class="grid grid-cols-3 gap-2">
+                  <template x-for="(m,k) in enabledPayments()" :key="k">
+                    <button @click="checkout.method=k"
+                            :class="checkout.method===k?'border-brand bg-brand/10':'border-gray-300'"
+                            class="border rounded-lg p-3 text-sm">
+                      <div class="text-2xl" x-text="m.icon"></div>
+                      <div x-text="m.label"></div>
+                    </button>
+                  </template>
+                </div>
+              </div>
+              <div x-show="checkout.method==='cash'">
+                <div class="text-sm font-medium mb-1">Khách đưa</div>
+                <input type="number" class="input w-full text-xl" x-model.number="checkout.cash" />
+                <div class="grid grid-cols-4 gap-1 mt-2">
+                  <template x-for="amt in suggestCash()" :key="amt">
+                    <button class="btn-ghost text-sm py-2" @click="checkout.cash=amt" x-text="formatVND(amt)"></button>
+                  </template>
+                </div>
+                <div class="text-sm mt-2">
+                  Tiền thừa: <span class="font-semibold text-brand" x-text="formatVND(Math.max(0,(checkout.cash||0)-cart.total(vatPct)))"></span>
+                </div>
+              </div>
+              <div>
+                <div class="text-sm font-medium mb-1">Ghi chú (tuỳ chọn)</div>
+                <input class="input w-full" placeholder="VD: Khách quen anh Hùng" x-model="checkout.note" />
+              </div>
+            </div>
+            <div class="p-4 border-t flex gap-2">
+              <button class="btn-ghost flex-1 py-3" @click="checkout.open=false">Huỷ</button>
+              <button class="btn-primary flex-1 py-3" @click="confirmCheckout()">Xác nhận đơn</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== TOAST ===== -->
+        <div x-show="toast.msg" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded-lg shadow-lg z-40 text-sm" x-transition>
+          <span x-text="toast.msg"></span>
+        </div>
+
+      </div>
+    </template>
+
+    <!-- ===== FOOTER ===== -->
+    <footer class="text-center text-xs text-gray-400 py-2 italic">
+      Powered by <a href="https://ecosyntechglobal.com" class="hover:text-brand" target="_blank" rel="noopener">EcoSynTech Global</a>
+      · v1.0
+    </footer>
+  </div>
+
+  <!-- ===== APP LOGIC ===== -->
+  <script>
+    function posApp() {
+      return {
+        booted: false,
+        bootMsg: 'Đang khởi tạo cơ sở dữ liệu...',
+        online: navigator.onLine,
+        user: null,
+        shop: null,
+
+        pin: '',
+        loginError: '',
+
+        view: 'dashboard',
+        catFilter: 0,
+
+        // ----- Dashboard state -----
+        dash: { today:{revenue:0,orders:0,delta_pct:0,yesterday_revenue:0}, last7:{revenue:0,orders:0,avg_per_day:0},
+                last30:{revenue:0,orders:0}, cost30:0, profit30:{revenue:0,cost:0,gross:0,margin_pct:0},
+                lowStock:[], topItems:[], trend30:[], anomalies:[] },
+        lineChartHtml: '',
+        topChartHtml: '',
+
+        // ----- Import wizard state -----
+        impStep: 1, impMsg: '', impBusy: false,
+        impHeaders: [], impRows: [],
+        impPresets: {}, impPresetKey: 'generic', impPresetName: '-', impDetectScore: 0, impDetectTotal: 0,
+        impColumnMap: {}, impOrders: [], impItemCount: 0, impDuplicates: 0, impIssues: [],
+        impDoDeduct: true, impResult: null,
+        impFieldList: [
+          { key: 'order_no',       label: 'Mã đơn',          required: true  },
+          { key: 'created_at',     label: 'Thời gian',       required: true  },
+          { key: 'product_name',   label: 'Sản phẩm',        required: true  },
+          { key: 'qty',            label: 'Số lượng',        required: true  },
+          { key: 'unit_price',     label: 'Đơn giá',         required: false },
+          { key: 'line_total',     label: 'Thành tiền',      required: true  },
+          { key: 'discount',       label: 'Giảm giá',        required: false },
+          { key: 'total',          label: 'Tổng đơn',        required: false },
+          { key: 'payment_method', label: 'Phương thức TT',  required: false },
+          { key: 'customer',       label: 'Khách',           required: false },
+          { key: 'note',           label: 'Ghi chú',         required: false },
+        ],
+        categories: [],
+        products: [],
+        ingredients: [],
+        lowStock: [],
+        orders: [],
+        users: [],
+
+        cart: window.makeCart(),
+        vatPct: 0,
+
+        todayStats: { orders:0, revenue:0, cash:0, qr:0, card:0 },
+        todayBest: [],
+
+        variantPicker: { open:false, product:null, groups:[], selection:{} },
+        checkout: { open:false, method:'cash', cash:0, note:'' },
+        toast: { msg:'' },
+
+        newUser: { name:'', pin:'', role:'staff' },
+        gasUrl: '', gasKey: '', gasMsg: '',
+        tgToken: '', tgChat: '', tgMsg: '',
+
+        // ===== BOOT =====
+        async boot() {
+          window.addEventListener('online',  ()=>this.online=true);
+          window.addEventListener('offline', ()=>this.online=false);
+          try {
+            this.bootMsg = 'Đang tải dữ liệu offline...';
+            await DB.init();
+            this.bootMsg = 'Đang nạp menu...';
+            this.shop = Models.getShop();
+            this.vatPct = this.shop?.tax_rate || 0;
+            this.loadCatalog();
+            this.users = Models.listUsers(this.shop.id);
+            // Sync queue
+            const cfg = GASClient.getConfig();
+            this.gasUrl = cfg.url || ''; this.gasKey = cfg.api_key || '';
+            const tg = TelegramBot.getConfig();
+            this.tgToken = tg.bot_token || ''; this.tgChat = tg.chat_id || '';
+            SyncQueue.start(this.shop.id, 60000);
+            // Preload import presets (lazy — only when user enters import tab)
+            // Register SW
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.register('service-worker.js').catch(e=>console.warn('SW reg fail', e));
+            }
+            this.booted = true;
+          } catch (e) {
+            this.bootMsg = 'Lỗi khởi tạo: ' + e.message;
+            console.error(e);
+          }
+        },
+
+        loadCatalog() {
+          this.categories = Models.listCategories(this.shop.id);
+          this.products = Models.listProducts(this.shop.id);
+          this.ingredients = Models.listIngredients(this.shop.id);
+          this.lowStock = Models.lowStockAlerts(this.shop.id);
+        },
+
+        // ===== LOGIN =====
+        pressPin(d) { if (this.pin.length < 4) this.pin += d; this.loginError=''; },
+        async submitPin() {
+          if (this.pin.length !== 4) return;
+          const u = await Models.authPin(this.pin, this.shop.id);
+          if (!u) { this.loginError = 'PIN không đúng'; this.pin=''; return; }
+          Session.set(u);
+          this.user = u;
+          this.pin = ''; this.loginError = '';
+          this.refreshReports();
+          this.loadOrders();
+          this.refreshDashboard();
+          this.startAutoLogout();
+        },
+        logout() { Session.clear(); this.user = null; },
+
+        autoLogoutTimer: null,
+        startAutoLogout() {
+          const mins = (window.BUSINESS_RULES?.auto_logout_minutes) || 15;
+          const reset = () => {
+            clearTimeout(this.autoLogoutTimer);
+            this.autoLogoutTimer = setTimeout(()=>this.logout(), mins*60*1000);
+          };
+          ['click','keydown','touchstart'].forEach(ev => document.addEventListener(ev, reset, { passive:true }));
+          reset();
+        },
+
+        // ===== HELPERS =====
+        formatVND(n) { return Utils.formatVND(n); },
+        fmtTime(ts) { return Utils.fmtDateTime(ts); },
+        categoryName(id) { const c = this.categories.find(x=>x.id===id); return c?c.name:'-'; },
+        userName(id) { const u = this.users.find(x=>x.id===id); return u?u.name:'-'; },
+        showToast(msg) { this.toast.msg = msg; setTimeout(()=>this.toast.msg='', 2500); },
+
+        filteredProducts() {
+          if (this.catFilter === 0) return this.products;
+          return this.products.filter(p => p.category_id === this.catFilter);
+        },
+
+        // ===== POS =====
+        onProductClick(p) {
+          const groups = Models.getVariantGroupsForProduct(p.id).map(g => ({
+            ...g, variants: Models.getVariantsForGroup(g.id)
+          }));
+          if (groups.length === 0) {
+            this.cart.addProduct(p, []);
+            this.showToast('Đã thêm ' + p.name);
+            return;
+          }
+          this.variantPicker = { open:true, product:p, groups, selection:{} };
+        },
+        toggleVariant(g,v) {
+          const sel = this.variantPicker.selection;
+          if (!sel[g.id]) sel[g.id] = [];
+          if (g.selection_type === 'single') {
+            sel[g.id] = [v];
+          } else {
+            const i = sel[g.id].findIndex(x=>x.id===v.id);
+            if (i>=0) sel[g.id].splice(i,1); else sel[g.id].push(v);
+          }
+        },
+        isVariantSelected(g,v) {
+          const arr = this.variantPicker.selection[g.id] || [];
+          return arr.some(x=>x.id===v.id);
+        },
+        variantPickerValid() {
+          return this.variantPicker.groups.every(g => !g.required || (this.variantPicker.selection[g.id]||[]).length>0);
+        },
+        variantPickerTotal() {
+          const base = this.variantPicker.product?.base_price || 0;
+          const sum = Object.values(this.variantPicker.selection).flat().reduce((s,v)=>s+(v.price_modifier||0),0);
+          return base + sum;
+        },
+        confirmVariantPick() {
+          const flat = Object.values(this.variantPicker.selection).flat();
+          this.cart.addProduct(this.variantPicker.product, flat);
+          this.variantPicker.open = false;
+          this.showToast('Đã thêm ' + this.variantPicker.product.name);
+        },
+        clearCart() {
+          if (this.cart.items.length===0) return;
+          if (confirm('Xoá hết giỏ hàng?')) this.cart.clear();
+        },
+
+        // ===== CHECKOUT =====
+        enabledPayments() {
+          const out = {};
+          Object.entries(window.PAYMENT_METHODS).forEach(([k,v])=>{ if (k!=='vietqr' && v.enabled) out[k]=v; });
+          return out;
+        },
+        openCheckout() {
+          if (this.cart.items.length===0) return;
+          const total = this.cart.total(this.vatPct);
+          this.checkout = { open:true, method:'cash', cash: total, note:'' };
+        },
+        suggestCash() {
+          const t = this.cart.total(this.vatPct);
+          const step = window.BUSINESS_RULES?.cash_round || 1000;
+          const round = (n)=> Math.ceil(n/step)*step;
+          return [round(t), round(t)+10000, round(t)+20000, round(t)+50000];
+        },
+        confirmCheckout() {
+          const total = this.cart.total(this.vatPct);
+          if (this.checkout.method === 'cash' && (this.checkout.cash||0) < total) {
+            this.showToast('Khách đưa thiếu tiền'); return;
+          }
+          try {
+            const orderData = {
+              branch_id: this.shop.id,
+              user_id: this.user.id,
+              status: 'paid',
+              subtotal: this.cart.subtotal(),
+              tax: this.cart.tax(this.vatPct),
+              discount: this.cart.discount || 0,
+              total,
+              payment_method: this.checkout.method,
+              cash_received: this.checkout.method==='cash' ? this.checkout.cash : null,
+              change_given: this.checkout.method==='cash' ? Math.max(0,(this.checkout.cash||0)-total) : null,
+              note: this.checkout.note || '',
+            };
+            const items = this.cart.items.map(i => ({...i}));
+            const res = Models.createOrder(orderData, items);
+            this.showToast('Đã lưu đơn ' + res.order_no);
+            this.cart.clear();
+            this.checkout.open = false;
+            this.refreshReports();
+            this.loadOrders();
+            // Try sync in background
+            SyncQueue.flushOnce(this.shop.id).catch(()=>{});
+          } catch (e) {
+            this.showToast('Lỗi lưu đơn: ' + e.message);
+            console.error(e);
+          }
+        },
+
+        // ===== REPORTS =====
+        refreshReports() {
+          this.todayStats = Models.dailyRevenue(this.shop.id, new Date());
+          const start = Utils.startOfDay(new Date());
+          const end = Utils.endOfDay(new Date());
+          this.todayBest = Models.bestSellers(this.shop.id, start, end, 5);
+        },
+        exportTodayCSV() {
+          const orders = Models.listRecentOrders(this.shop.id, 1000)
+            .filter(o => o.created_at >= Utils.startOfDay(new Date()) && o.created_at <= Utils.endOfDay(new Date()));
+          const lines = ['ma_don,gio,nhan_vien,tong,phuong_thuc,trang_thai'];
+          orders.forEach(o => {
+            lines.push([o.order_no, Utils.fmtDateTime(o.created_at), this.userName(o.user_id), o.total, o.payment_method, o.status].join(','));
+          });
+          const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `doanh_thu_${Utils.today()}.csv`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        async sendTelegramDigest() {
+          try {
+            await TelegramBot.sendDailyDigest(this.shop.id);
+            this.showToast('Đã gửi Telegram');
+          } catch (e) { this.showToast('Telegram lỗi: ' + e.message); }
+        },
+
+        // ===== DASHBOARD =====
+        refreshDashboard() {
+          if (!this.shop) return;
+          this.dash = Dashboard.snapshot(this.shop.id);
+          this.lineChartHtml = Dashboard.renderLineChart(this.dash.trend30);
+          this.topChartHtml = Dashboard.renderTopItemsBar(this.dash.topItems);
+        },
+
+        // ===== NAV =====
+        goView(v) {
+          this.view = v;
+          if (v === 'dashboard') this.refreshDashboard();
+          if (v === 'reports') this.refreshReports();
+          if (v === 'orders') this.loadOrders();
+          if (v === 'inventory') this.loadCatalog();
+          if (v === 'import') this.impInit();
+        },
+
+        // ===== IMPORT WIZARD =====
+        async impInit() {
+          this.impPresets = await ImportWizard.loadPresets();
+        },
+        impReset() {
+          this.impStep = 1; this.impMsg = ''; this.impHeaders = []; this.impRows = [];
+          this.impPresetKey = 'generic'; this.impPresetName = '-';
+          this.impColumnMap = {}; this.impOrders = []; this.impItemCount = 0;
+          this.impDuplicates = 0; this.impIssues = []; this.impResult = null; this.impBusy = false;
+        },
+        impUpload(ev) {
+          const f = ev.target.files[0]; if (!f) return;
+          this.impMsg = 'Đang đọc file...';
+          const r = new FileReader();
+          r.onload = async () => {
+            try {
+              const text = r.result;
+              const rows2D = CSVParser.parseCSV(text);
+              const { headers, objects } = CSVParser.rowsToObjects(rows2D);
+              this.impHeaders = headers;
+              this.impRows = objects;
+              if (Object.keys(this.impPresets).length === 0) await this.impInit();
+              const det = ImportWizard.detectPreset(headers);
+              this.impPresetKey = det.key;
+              this.impPresetName = det.preset?.name || '-';
+              this.impDetectScore = det.score;
+              this.impDetectTotal = (det.preset?.detect_headers || []).length;
+              const mapped = ImportWizard.autoMap(det.preset || this.impPresets.generic, headers);
+              const fullMap = {};
+              this.impFieldList.forEach(f => { fullMap[f.key] = mapped[f.key] || ''; });
+              this.impColumnMap = fullMap;
+              this.impMsg = 'OK — ' + objects.length + ' dòng dữ liệu.';
+              this.impStep = 2;
+            } catch (e) {
+              this.impMsg = 'Lỗi đọc CSV: ' + e.message;
+            }
+          };
+          r.readAsText(f, 'UTF-8');
+        },
+        impApplyPreset() {
+          const preset = this.impPresets[this.impPresetKey];
+          if (!preset) return;
+          this.impPresetName = preset.name;
+          const mapped = ImportWizard.autoMap(preset, this.impHeaders);
+          const fullMap = {};
+          this.impFieldList.forEach(f => { fullMap[f.key] = mapped[f.key] || ''; });
+          this.impColumnMap = fullMap;
+        },
+        impPreviewRows() {
+          const preset = this.impPresets[this.impPresetKey] || this.impPresets.generic;
+          if (!preset) return [];
+          return ImportWizard.normalize(this.impRows.slice(0, 3), preset, this.impColumnMap);
+        },
+        impPrepareConfirm() {
+          const preset = this.impPresets[this.impPresetKey] || this.impPresets.generic;
+          // Check required fields
+          const missing = this.impFieldList.filter(f => f.required && !this.impColumnMap[f.key]);
+          if (missing.length) {
+            alert('Còn ' + missing.length + ' trường bắt buộc chưa map: ' + missing.map(m=>m.label).join(', '));
+            return;
+          }
+          const norm = ImportWizard.normalize(this.impRows, preset, this.impColumnMap);
+          this.impOrders = ImportWizard.groupByOrder(norm, preset);
+          this.impItemCount = this.impOrders.reduce((s,o)=>s+o.items.length, 0);
+          // Check duplicates
+          let dupes = 0;
+          this.impOrders.forEach((o) => {
+            const r = DB.exec("SELECT id FROM orders WHERE branch_id=? AND order_no=? LIMIT 1",
+              [this.shop.id, o.order_no]);
+            if (r.length > 0) dupes++;
+          });
+          this.impDuplicates = dupes;
+          const v = ImportWizard.validate(this.impOrders);
+          this.impIssues = v.issues;
+          this.impStep = 4;
+        },
+        async impExecute() {
+          this.impBusy = true;
+          try {
+            const summary = ImportWizard.importOrders(this.shop.id, this.impOrders, {
+              source: this.impPresetName,
+              deduct: this.impDoDeduct,
+            });
+            this.impResult = summary;
+            this.refreshDashboard();
+            this.loadOrders();
+            this.loadCatalog();
+            this.showToast('Đã import ' + summary.imported + ' đơn');
+          } catch (e) {
+            this.impMsg = 'Lỗi import: ' + e.message;
+            console.error(e);
+          } finally {
+            this.impBusy = false;
+          }
+        },
+
+        // ===== ORDERS =====
+        loadOrders() {
+          this.orders = Models.listRecentOrders(this.shop.id, 20);
+        },
+
+        // ===== MENU EDIT =====
+        openProductEdit(p) {
+          const name = prompt('Tên sản phẩm', p ? p.name : '');
+          if (!name) return;
+          const priceStr = prompt('Giá gốc (VND)', p ? p.base_price : 25000);
+          const price = parseInt(priceStr,10);
+          if (!price || price<0) { alert('Giá không hợp lệ'); return; }
+          const categoryId = parseInt(prompt('ID nhóm (xem ở tab Menu trong DB; mặc định 1)', p?p.category_id:1), 10) || 1;
+          const icon = prompt('Icon emoji (tuỳ chọn)', p?p.icon:'🥤') || '';
+          Models.upsertProduct({
+            id: p?.id, branch_id: this.shop.id, category_id: categoryId,
+            name, base_price: price, icon, active: 1, sort_order: p?.sort_order||0,
+          });
+          this.loadCatalog();
+          this.showToast('Đã lưu sản phẩm');
+        },
+
+        // ===== INVENTORY TX =====
+        openInventoryTx(ing) {
+          const typeStr = prompt('Loại: 1=Nhập, 2=Xuất, 3=Hao hụt, 4=Điều chỉnh', '1');
+          const typeMap = {'1':'purchase','2':'sale','3':'waste','4':'adjustment'};
+          const type = typeMap[typeStr]; if (!type) return;
+          const qtyStr = prompt('Số lượng (đơn vị: ' + ing.unit + ', dùng số âm nếu xuất)', '0');
+          const qty = parseFloat(qtyStr); if (isNaN(qty)) return;
+          const cost = type==='purchase' ? (parseInt(prompt('Đơn giá nhập (VND/' + ing.unit + ')', ing.cost_per_unit)||'0',10)) : ing.cost_per_unit;
+          const note = prompt('Ghi chú (tuỳ chọn)', '') || '';
+          Models.addInventoryTx({
+            branch_id: this.shop.id, ingredient_id: ing.id, type,
+            qty, unit_cost: cost, total_cost: Math.round(cost*Math.abs(qty)),
+            ref_type:'manual', note, user_id: this.user.id,
+          });
+          this.loadCatalog();
+          this.showToast('Đã ghi nhận');
+        },
+
+        // ===== SETTINGS - SHOP =====
+        saveShop() {
+          Models.updateShop({
+            id: this.shop.id, name: this.shop.name, address: this.shop.address,
+            phone: this.shop.phone, slogan: this.shop.slogan,
+            logo_data_url: this.shop.logo_data_url, tax_rate: this.shop.tax_rate || 0,
+            round_to: this.shop.round_to || 1000, license_to: this.shop.license_to || '',
+          });
+          this.vatPct = this.shop.tax_rate || 0;
+          this.showToast('Đã lưu thông tin quán');
+        },
+        uploadLogo(ev) {
+          const f = ev.target.files[0]; if (!f) return;
+          if (f.size > 200*1024) { alert('Logo > 200KB. Hãy nén ảnh trước.'); return; }
+          const r = new FileReader();
+          r.onload = () => { this.shop.logo_data_url = r.result; this.showToast('Đã nạp logo (nhấn Lưu)'); };
+          r.readAsDataURL(f);
+        },
+
+        // ===== SETTINGS - USERS =====
+        async addUser() {
+          if (!this.newUser.name || !this.newUser.pin || this.newUser.pin.length!==4) {
+            alert('Cần tên + PIN 4 số'); return;
+          }
+          await Models.createUser({
+            branch_id: this.shop.id, name: this.newUser.name,
+            pin: this.newUser.pin, role: this.newUser.role,
+          });
+          this.users = Models.listUsers(this.shop.id);
+          this.newUser = { name:'', pin:'', role:'staff' };
+          this.showToast('Đã thêm người dùng');
+        },
+        async changePinFor(u) {
+          const p = prompt('PIN mới (4 số) cho ' + u.name);
+          if (!p || p.length!==4) return;
+          await Models.changePin(u.id, p, this.shop.id);
+          this.showToast('Đã đổi PIN');
+        },
+        deactivate(u) {
+          if (!confirm('Xoá ' + u.name + '?')) return;
+          Models.deactivateUser(u.id);
+          this.users = Models.listUsers(this.shop.id);
+        },
+
+        // ===== SETTINGS - SYNC =====
+        saveGAS() {
+          GASClient.setConfig({ url: this.gasUrl, api_key: this.gasKey, branch_id: this.shop.id });
+          this.gasMsg = 'Đã lưu cấu hình GAS.';
+        },
+        async testGAS() {
+          this.gasMsg = 'Đang ping...';
+          const r = await GASClient.ping();
+          this.gasMsg = r.ok ? '✓ GAS phản hồi OK' : '✗ ' + (r.reason||'không phản hồi');
+        },
+        async syncNow() {
+          this.gasMsg = 'Đang đồng bộ...';
+          await SyncQueue.flushOnce(this.shop.id);
+          this.gasMsg = 'Đã chạy đồng bộ. Xem console nếu lỗi.';
+        },
+
+        // ===== SETTINGS - TELEGRAM =====
+        saveTG() {
+          TelegramBot.setConfig({ bot_token: this.tgToken, chat_id: this.tgChat });
+          this.tgMsg = 'Đã lưu cấu hình Telegram.';
+        },
+        async testTG() {
+          try {
+            await TelegramBot.send('🔔 Test từ POS Cafe — ' + new Date().toLocaleString('vi-VN'));
+            this.tgMsg = '✓ Đã gửi test, kiểm tra Telegram.';
+          } catch (e) { this.tgMsg = '✗ ' + e.message; }
+        },
+
+        // ===== BACKUP =====
+        backupDB() {
+          const blob = new Blob([DB.exportBlob()], { type:'application/octet-stream' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url; a.download = `pos-backup-${Utils.today()}.db`;
+          a.click();
+          URL.revokeObjectURL(url);
+        },
+        restoreDB(ev) {
+          const f = ev.target.files[0]; if (!f) return;
+          if (!confirm('Phục hồi sẽ GHI ĐÈ dữ liệu hiện tại. Tiếp tục?')) return;
+          const r = new FileReader();
+          r.onload = async () => {
+            await DB.importBlob(new Uint8Array(r.result));
+            location.reload();
+          };
+          r.readAsArrayBuffer(f);
+        },
+        async resetData() {
+          if (!confirm('XOÁ TOÀN BỘ dữ liệu (đơn hàng, kho, người dùng)? Không thể hoàn tác!')) return;
+          if (!confirm('Xác nhận lần 2: bạn chắc chắn?')) return;
+          await DB.resetAll();
+          location.reload();
+        },
+      };
+    }
+  </script>
+</body>
+</html>
