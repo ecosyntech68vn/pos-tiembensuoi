@@ -103,14 +103,15 @@
           [orderId, it.product_id, it.product_name, JSON.stringify(it.variants || []),
            it.unit_price, it.qty, it.line_total]);
       });
-      // Auto-deduct inventory from recipes (silent — owner sees in stock view)
+      // Auto-deduct inventory from recipes
+      let deductions = [];
       try {
-        Models.deductInventoryForOrderItems(order.branch_id, orderId, items, 'auto');
+        deductions = Models.deductInventoryForOrderItems(order.branch_id, orderId, items, 'auto');
       } catch (e) {
         console.warn('[deduct] order', orderId, e.message);
       }
       DB.persist();
-      return { id: orderId, order_no: orderNo };
+      return { id: orderId, order_no: orderNo, deductions };
     },
     listRecentOrders(branchId, limit) {
       return DB.exec("SELECT * FROM orders WHERE branch_id=? ORDER BY created_at DESC LIMIT ?", [branchId, limit || 20]);
@@ -289,6 +290,110 @@
         }
       });
       return anomalies;
+    },
+
+    // ---- Recipe CRUD ----
+    listRecipesForProduct(productId) {
+      return DB.exec(`
+        SELECT r.product_id, r.ingredient_id, r.qty_per_unit, r.variant_filter,
+               i.name AS ingredient_name, i.unit, i.cost_per_unit, i.stock_current, i.stock_min
+        FROM recipes r
+        JOIN ingredients i ON i.id = r.ingredient_id
+        WHERE r.product_id = ?
+        ORDER BY i.name
+      `, [productId]);
+    },
+    upsertRecipe(productId, ingredientId, qtyPerUnit, variantFilter) {
+      // SQLite UPSERT via INSERT OR REPLACE on PK (product_id, ingredient_id, variant_filter)
+      // Note: variant_filter NULL — SQLite distinct treats NULL specially. Normalize NULL → ''.
+      const vf = variantFilter || null;
+      DB.run(
+        `INSERT OR REPLACE INTO recipes (product_id, ingredient_id, qty_per_unit, variant_filter) VALUES (?,?,?,?)`,
+        [productId, ingredientId, qtyPerUnit, vf]
+      );
+      DB.persist();
+    },
+    removeRecipe(productId, ingredientId, variantFilter) {
+      if (variantFilter) {
+        DB.run(`DELETE FROM recipes WHERE product_id=? AND ingredient_id=? AND variant_filter=?`,
+          [productId, ingredientId, variantFilter]);
+      } else {
+        DB.run(`DELETE FROM recipes WHERE product_id=? AND ingredient_id=? AND variant_filter IS NULL`,
+          [productId, ingredientId]);
+      }
+      DB.persist();
+    },
+    /** Aggregate deductions by ingredient — for UI summary toast/modal */
+    aggregateDeductions(deductions) {
+      const map = new Map();
+      (deductions || []).forEach((d) => {
+        if (!map.has(d.ingredient_id)) map.set(d.ingredient_id, {
+          ingredient_id: d.ingredient_id, ingredient_name: d.ingredient_name,
+          unit: d.unit, qty: 0, products: new Set(),
+        });
+        const agg = map.get(d.ingredient_id);
+        agg.qty += d.qty;
+        agg.products.add(d.product_name);
+      });
+      return Array.from(map.values()).map((a) => ({
+        ingredient_id: a.ingredient_id,
+        ingredient_name: a.ingredient_name,
+        unit: a.unit,
+        qty: Math.round(a.qty * 100) / 100,
+        products: Array.from(a.products),
+      }));
+    },
+    /** Check which of given ingredient IDs are now below stock_min */
+    lowStockAlertsAfter(branchId, ingredientIds) {
+      if (!ingredientIds || !ingredientIds.length) return [];
+      const placeholders = ingredientIds.map(() => '?').join(',');
+      return DB.exec(
+        `SELECT id, name, unit, stock_current, stock_min FROM ingredients
+         WHERE branch_id=? AND active=1 AND stock_current < stock_min AND id IN (${placeholders})`,
+        [branchId, ...ingredientIds]
+      );
+    },
+    recipeCostForProduct(productId) {
+      // Returns { total_cost, lines: [{ingredient_name, qty, cost}] }
+      const rows = Models.listRecipesForProduct(productId);
+      const lines = rows.map((r) => ({
+        ingredient_name: r.ingredient_name,
+        qty: r.qty_per_unit,
+        unit: r.unit,
+        unit_cost: r.cost_per_unit,
+        line_cost: Math.round((r.qty_per_unit || 0) * (r.cost_per_unit || 0)),
+      }));
+      const total = lines.reduce((s, l) => s + l.line_cost, 0);
+      return { total_cost: total, lines };
+    },
+
+    // ---- Inventory tx batch (bulk purchase) ----
+    addInventoryTxBatch(txs) {
+      // txs: array of { branch_id, ingredient_id, type, qty, unit_cost, total_cost, note, supplier, user_id }
+      const created = [];
+      txs.forEach((tx) => {
+        const ts = Date.now();
+        DB.run(`INSERT INTO inventory_transactions
+                (branch_id, ingredient_id, type, qty, unit_cost, total_cost, ref_type, ref_id, note, user_id, created_at, sync_status)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?, 'pending')`,
+          [tx.branch_id, tx.ingredient_id, tx.type, tx.qty, tx.unit_cost || 0,
+           tx.total_cost || 0, tx.ref_type || 'manual', tx.ref_id || null,
+           (tx.note || '') + (tx.supplier ? ' [NCC: ' + tx.supplier + ']' : ''),
+           tx.user_id || null, ts]);
+        DB.run("UPDATE ingredients SET stock_current = stock_current + ? WHERE id=?",
+          [tx.qty, tx.ingredient_id]);
+        if (tx.supplier) {
+          DB.run("UPDATE ingredients SET supplier=? WHERE id=? AND (supplier IS NULL OR supplier='')",
+            [tx.supplier, tx.ingredient_id]);
+        }
+        created.push({ ingredient_id: tx.ingredient_id, qty: tx.qty });
+      });
+      DB.persist();
+      return created;
+    },
+    listSuppliers(branchId) {
+      const rows = DB.exec("SELECT DISTINCT supplier FROM ingredients WHERE branch_id=? AND supplier IS NOT NULL AND supplier!='' ORDER BY supplier", [branchId]);
+      return rows.map((r) => r.supplier);
     },
 
     // ---- Recipe inventory deduction ----
