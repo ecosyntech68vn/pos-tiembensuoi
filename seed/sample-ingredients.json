@@ -1,0 +1,24 @@
+{
+  "ingredients": [
+    {"id": 1,  "name": "Cà phê bột", "unit": "g",  "stock_current": 5000, "stock_min": 1000, "cost_per_unit": 200, "supplier": "NCC Cafe VN"},
+    {"id": 2,  "name": "Sữa đặc",   "unit": "ml", "stock_current": 3000, "stock_min": 500,  "cost_per_unit": 50,  "supplier": "Vinamilk"},
+    {"id": 3,  "name": "Sữa tươi",  "unit": "ml", "stock_current": 5000, "stock_min": 1000, "cost_per_unit": 30,  "supplier": "Vinamilk"},
+    {"id": 4,  "name": "Trà ô long","unit": "g",  "stock_current": 2000, "stock_min": 300,  "cost_per_unit": 300, "supplier": "Trà Thái Nguyên"},
+    {"id": 5,  "name": "Trà xanh",  "unit": "g",  "stock_current": 2000, "stock_min": 300,  "cost_per_unit": 280, "supplier": "Trà Thái Nguyên"},
+    {"id": 6,  "name": "Hồng trà",  "unit": "g",  "stock_current": 2000, "stock_min": 300,  "cost_per_unit": 250, "supplier": "Trà Thái Nguyên"},
+    {"id": 7,  "name": "Bột matcha","unit": "g",  "stock_current": 500,  "stock_min": 100,  "cost_per_unit": 1500,"supplier": "Matcha Nhật"},
+    {"id": 8,  "name": "Trân châu đen","unit":"g","stock_current": 3000, "stock_min": 500,  "cost_per_unit": 80,  "supplier": "TC Đài Loan"},
+    {"id": 9,  "name": "Trân châu trắng","unit":"g","stock_current": 2000,"stock_min": 300, "cost_per_unit": 90,  "supplier": "TC Đài Loan"},
+    {"id": 10, "name": "Thạch dừa", "unit": "g",  "stock_current": 1500, "stock_min": 200,  "cost_per_unit": 60,  "supplier": "Thạch VN"},
+    {"id": 11, "name": "Đường",     "unit": "g",  "stock_current": 10000,"stock_min": 2000, "cost_per_unit": 25,  "supplier": "Đường Biên Hòa"},
+    {"id": 12, "name": "Đá viên",   "unit": "g",  "stock_current": 50000,"stock_min": 10000,"cost_per_unit": 2,   "supplier": "Đá tự sản xuất"},
+    {"id": 13, "name": "Siro đào",  "unit": "ml", "stock_current": 1500, "stock_min": 300,  "cost_per_unit": 150, "supplier": "Monin VN"},
+    {"id": 14, "name": "Siro socola","unit":"ml", "stock_current": 1500, "stock_min": 300,  "cost_per_unit": 150, "supplier": "Monin VN"},
+    {"id": 15, "name": "Bột khoai môn","unit":"g","stock_current": 1000, "stock_min": 200,  "cost_per_unit": 200, "supplier": "Khoai môn ĐL"},
+    {"id": 16, "name": "Bơ tươi",   "unit": "g",  "stock_current": 2000, "stock_min": 500,  "cost_per_unit": 80,  "supplier": "Chợ đầu mối"},
+    {"id": 17, "name": "Xoài tươi", "unit": "g",  "stock_current": 2000, "stock_min": 500,  "cost_per_unit": 50,  "supplier": "Chợ đầu mối"},
+    {"id": 18, "name": "Cam tươi",  "unit": "g",  "stock_current": 3000, "stock_min": 500,  "cost_per_unit": 35,  "supplier": "Chợ đầu mối"},
+    {"id": 19, "name": "Chanh",     "unit": "g",  "stock_current": 1500, "stock_min": 300,  "cost_per_unit": 40,  "supplier": "Chợ đầu mối"},
+    {"id": 20, "name": "Ly nhựa + nắp + ống hút","unit":"cái","stock_current": 2000,"stock_min": 300,"cost_per_unit": 1500,"supplier": "Bao bì NL"}
+  ]
+}
