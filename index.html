@@ -974,6 +974,285 @@
       </div>
     </template>
 
+    <!-- ============ PRODUCT EDITOR MODAL (Info + Recipe tabs) ============ -->
+    <template x-if="user && productEditor.open">
+      <div class="modal-backdrop" @click.self="productEditor.open=false">
+        <div class="modal" style="max-width: 640px;">
+          <div class="modal-head">
+            <h3 x-text="productEditor.p?.id ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'"></h3>
+            <div style="display: flex; gap: 4px; margin-top: 12px; border-bottom: 1px solid var(--border); padding-bottom: 0;">
+              <button class="step-pill" :class="productEditor.tab==='info'?'active':''" @click="productEditor.tab='info'" style="border-radius: var(--r-sm) var(--r-sm) 0 0;">Thông tin</button>
+              <button class="step-pill" :class="productEditor.tab==='recipe'?'active':''" @click="productEditor.tab='recipe'" style="border-radius: var(--r-sm) var(--r-sm) 0 0;">Công thức (NVL)</button>
+            </div>
+          </div>
+          <div class="modal-body">
+            <!-- Info tab -->
+            <div x-show="productEditor.tab==='info'">
+              <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div class="field" style="grid-column: 1 / -1;">
+                  <div class="label">Tên sản phẩm *</div>
+                  <input class="input" x-model="productEditor.p.name" placeholder="VD: Trà sữa truyền thống" />
+                </div>
+                <div class="field">
+                  <div class="label">Giá bán (VND) *</div>
+                  <input type="number" class="input num" x-model.number="productEditor.p.base_price" />
+                </div>
+                <div class="field">
+                  <div class="label">Nhóm</div>
+                  <select class="input" x-model.number="productEditor.p.category_id">
+                    <template x-for="c in categories" :key="c.id">
+                      <option :value="c.id" x-text="(c.icon||'') + ' ' + c.name"></option>
+                    </template>
+                  </select>
+                </div>
+                <div class="field">
+                  <div class="label">Icon emoji</div>
+                  <input class="input" x-model="productEditor.p.icon" placeholder="VD: 🧋" />
+                </div>
+                <div class="field">
+                  <div class="label">Hiển thị</div>
+                  <label style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                    <input type="checkbox" :checked="productEditor.p.active" @change="productEditor.p.active = $event.target.checked ? 1 : 0" />
+                    Sản phẩm đang bán
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recipe tab -->
+            <div x-show="productEditor.tab==='recipe'">
+              <div x-show="!productEditor.p.id" class="empty-state" style="padding: 24px 0;">
+                <div class="empty-icon" x-html="Icons.svg('info','width=36 height=36')"></div>
+                <div class="empty-title">Cần lưu sản phẩm trước</div>
+                <div class="empty-desc">Quay lại tab Thông tin → bấm Lưu sản phẩm → mới gắn được công thức NVL.</div>
+              </div>
+              <div x-show="productEditor.p.id">
+                <div class="caption" style="margin-bottom: 8px;">Định mức nguyên liệu cho 1 đơn vị</div>
+                <table class="table">
+                  <thead><tr><th>Nguyên liệu</th><th>Số lượng</th><th>Đơn vị</th><th>Áp dụng cho</th><th>Giá vốn</th><th></th></tr></thead>
+                  <tbody>
+                    <template x-for="r in productEditor.recipes" :key="r.ingredient_id + '|' + (r.variant_filter||'')">
+                      <tr>
+                        <td x-text="r.ingredient_name"></td>
+                        <td class="num" x-text="r.qty_per_unit"></td>
+                        <td class="text-subtle" x-text="r.unit"></td>
+                        <td>
+                          <span x-show="!r.variant_filter" class="text-subtle">Mặc định</span>
+                          <span x-show="r.variant_filter" class="pill info" x-text="r.variant_filter"></span>
+                        </td>
+                        <td class="num" x-text="formatVND(Math.round((r.qty_per_unit||0) * (r.cost_per_unit||0)))"></td>
+                        <td><button class="icon-btn" style="color: var(--danger);" @click="removeRecipeRow(r)" x-html="Icons.svg('close','width=14 height=14')"></button></td>
+                      </tr>
+                    </template>
+                    <tr x-show="productEditor.recipes.length===0">
+                      <td colspan="6" class="text-center text-subtle" style="padding: 16px;">Chưa có NVL. Thêm bằng form bên dưới.</td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <!-- Add row -->
+                <div style="border-top: 1px solid var(--border-strong); padding-top: 12px; margin-top: 12px;">
+                  <div class="caption" style="margin-bottom: 8px;">Thêm nguyên liệu</div>
+                  <div class="grid" style="grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; align-items: end;">
+                    <div class="field" style="margin: 0;">
+                      <div class="label">Nguyên liệu</div>
+                      <select class="input" x-model="productEditor.newRecipeIngId">
+                        <option value="">— chọn —</option>
+                        <template x-for="i in ingredients" :key="i.id">
+                          <option :value="i.id" x-text="i.name + ' (' + i.unit + ', ' + formatVND(i.cost_per_unit) + '/' + i.unit + ')'"></option>
+                        </template>
+                      </select>
+                    </div>
+                    <div class="field" style="margin: 0;">
+                      <div class="label">Số lượng</div>
+                      <input type="number" step="0.1" class="input num" x-model="productEditor.newRecipeQty" placeholder="VD: 50" />
+                    </div>
+                    <div class="field" style="margin: 0;">
+                      <div class="label">Áp dụng cho (variant)</div>
+                      <input class="input" x-model="productEditor.newRecipeVariant" placeholder="VD: L (để trống = mọi size)" />
+                    </div>
+                    <button class="btn btn-primary btn-sm" @click="addRecipeRow()">+ Thêm</button>
+                  </div>
+                </div>
+
+                <!-- Cost preview -->
+                <div style="background: var(--primary-light); border-radius: var(--r-md); padding: 12px; margin-top: 16px;">
+                  <div style="display: flex; justify-content: space-between; font-size: 13px;">
+                    <span>Giá vốn (cho 1 SP)</span>
+                    <span class="num" style="font-weight: 600;" x-text="formatVND(recipeTotalCost())"></span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; font-size: 13px; margin-top: 4px;">
+                    <span>Giá bán</span>
+                    <span class="num" style="font-weight: 600;" x-text="formatVND(productEditor.p.base_price || 0)"></span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding-top: 8px; border-top: 1px dashed var(--border-strong); margin-top: 8px;">
+                    <span style="font-weight: 600;">Lợi nhuận gộp / SP</span>
+                    <span class="num" style="font-weight: 700; color: var(--primary);">
+                      <span x-text="formatVND((productEditor.p.base_price || 0) - recipeTotalCost())"></span>
+                      (<span x-text="recipeMarginPct()"></span>%)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-ghost" @click="productEditor.open=false">Đóng</button>
+            <button class="btn btn-primary" @click="saveProductEditor()" x-show="productEditor.tab==='info'">
+              <span x-html="Icons.svg('check','width=14 height=14')"></span> Lưu sản phẩm
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ============ INVENTORY EDITOR MODAL (bulk) ============ -->
+    <template x-if="user && invEditor.open">
+      <div class="modal-backdrop" @click.self="invEditor.open=false">
+        <div class="modal" style="max-width: 720px;">
+          <div class="modal-head">
+            <h3>Ghi nhận kho</h3>
+            <div class="text-sm text-muted" style="margin-top: 4px;">Nhập / Xuất / Điều chỉnh / Hao hụt nguyên liệu.</div>
+          </div>
+          <div class="modal-body">
+            <!-- Type radio -->
+            <div class="field">
+              <div class="label">Loại giao dịch</div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <template x-for="t in [
+                  {v: 'purchase',   label: '📦 Nhập hàng',  hint: 'tăng tồn'},
+                  {v: 'sale',       label: '🛒 Xuất bán',   hint: 'giảm tồn'},
+                  {v: 'waste',      label: '🗑 Hao hụt',     hint: 'giảm tồn'},
+                  {v: 'adjustment', label: '✏ Điều chỉnh',  hint: '+/- tuỳ ý'},
+                ]" :key="t.v">
+                  <button class="chip" :class="invEditor.type===t.v?'selected':''" @click="invEditor.type=t.v" style="flex: 1; min-width: 140px;">
+                    <div><span x-text="t.label"></span></div>
+                    <div class="text-xs" style="opacity: 0.7;" x-text="t.hint"></div>
+                  </button>
+                </template>
+              </div>
+            </div>
+
+            <!-- Supplier (only for purchase) -->
+            <div class="field" x-show="invEditor.type==='purchase'">
+              <div class="label">Nhà cung cấp</div>
+              <input class="input" x-model="invEditor.supplier" list="suppliers-list" placeholder="VD: Vinamilk" />
+              <datalist id="suppliers-list">
+                <template x-for="s in invEditor.suppliers" :key="s">
+                  <option :value="s"></option>
+                </template>
+              </datalist>
+            </div>
+
+            <!-- Rows -->
+            <div class="caption" style="margin-bottom: 8px;">Danh sách nguyên liệu</div>
+            <div style="overflow-x: auto;">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Nguyên liệu</th>
+                    <th>Số lượng</th>
+                    <th x-show="invEditor.type==='purchase'">Đơn giá</th>
+                    <th>Thành tiền</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="(row, idx) in invEditor.rows" :key="idx">
+                    <tr>
+                      <td>
+                        <select class="input" x-model="row.ingredient_id" @change="invRowChange(idx)" style="min-width: 180px;">
+                          <option value="">— chọn —</option>
+                          <template x-for="i in ingredients" :key="i.id">
+                            <option :value="i.id" x-text="i.name + ' (' + i.unit + ')'"></option>
+                          </template>
+                        </select>
+                      </td>
+                      <td>
+                        <input type="number" step="0.1" class="input num" x-model="row.qty" style="width: 100px;" />
+                      </td>
+                      <td x-show="invEditor.type==='purchase'">
+                        <input type="number" class="input num" x-model="row.unit_cost" style="width: 110px;" />
+                      </td>
+                      <td class="num text-primary" style="font-weight: 600;" x-text="formatVND(Math.round((parseFloat(row.qty)||0) * (parseInt(row.unit_cost,10)||0)))"></td>
+                      <td><button class="icon-btn" style="color: var(--danger);" @click="invRemoveRow(idx)" x-html="Icons.svg('close','width=14 height=14')" x-show="invEditor.rows.length > 1"></button></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <button class="btn btn-ghost btn-sm" style="margin-top: 8px;" @click="invAddRow()">
+              <span x-html="Icons.svg('plus','width=14 height=14')"></span> Thêm dòng
+            </button>
+
+            <!-- Note -->
+            <div class="field" style="margin-top: 16px;">
+              <div class="label">Ghi chú</div>
+              <input class="input" x-model="invEditor.note" placeholder="VD: Hoá đơn #12345" />
+            </div>
+
+            <!-- Total -->
+            <div style="background: var(--bg-hover); border-radius: var(--r-md); padding: 12px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+              <span style="font-weight: 600;">Tổng giá trị</span>
+              <span class="num" style="font-size: 18px; font-weight: 700; color: var(--primary);" x-text="formatVND(invTotalCost())"></span>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-ghost" @click="invEditor.open=false">Huỷ</button>
+            <button class="btn btn-primary" @click="saveInventoryTx()">
+              <span x-html="Icons.svg('check','width=14 height=14')"></span> Ghi nhận
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <!-- ============ DEDUCT SUMMARY MODAL ============ -->
+    <template x-if="user && deductSummary.open">
+      <div class="modal-backdrop" @click.self="deductSummary.open=false">
+        <div class="modal" style="max-width: 520px;">
+          <div class="modal-head">
+            <h3 x-text="deductSummary.title"></h3>
+            <div class="text-sm text-muted" style="margin-top: 4px;">
+              <span class="num" x-text="deductSummary.orders"></span> đơn ·
+              <span class="num" x-text="deductSummary.items"></span> dòng NVL bị trừ
+            </div>
+          </div>
+          <div class="modal-body">
+            <table class="table">
+              <thead><tr><th>Nguyên liệu</th><th>Trừ</th><th>Đơn vị</th></tr></thead>
+              <tbody>
+                <template x-for="(l, idx) in deductSummary.lines" :key="idx">
+                  <tr>
+                    <td x-text="l.ingredient_name"></td>
+                    <td class="num text-danger" style="font-weight: 600;" x-text="'-' + l.qty"></td>
+                    <td class="text-subtle" x-text="l.unit"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+
+            <div x-show="deductSummary.lowAfter && deductSummary.lowAfter.length > 0" style="margin-top: 16px; background: #fffbeb; border: 1px solid #fbbf24; border-radius: var(--r-md); padding: 12px;">
+              <div style="font-weight: 600; color: #92400e;">⚠ Cảnh báo tồn kho sau khi trừ</div>
+              <ul style="margin: 8px 0 0 18px; font-size: 13px; color: #78350f;">
+                <template x-for="(low, idx) in deductSummary.lowAfter" :key="idx">
+                  <li>
+                    <b x-text="low.name"></b>:
+                    còn <span class="num" x-text="low.stock_current"></span> <span x-text="low.unit"></span>
+                    (min <span class="num" x-text="low.stock_min"></span>) → cần đặt thêm
+                  </li>
+                </template>
+              </ul>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <button class="btn btn-ghost" @click="deductSummary.open=false; goView('inventory');">Mở Kho</button>
+            <button class="btn btn-primary" @click="deductSummary.open=false">Đóng</button>
+          </div>
+        </div>
+      </div>
+    </template>
+
     <!-- ============ TOAST CONTAINER ============ -->
     <div class="toast-container">
       <template x-for="(t, idx) in toasts" :key="t.id">
@@ -1302,7 +1581,14 @@
               note: this.checkout.note || '',
             };
             const res = Models.createOrder(orderData, items);
-            this.showToast('Đã lưu đơn ' + res.order_no);
+            // Show deduct summary in toast if any
+            const agg = Models.aggregateDeductions(res.deductions || []);
+            if (agg.length > 0) {
+              const summary = agg.map(a => `${a.qty}${a.unit} ${a.ingredient_name.toLowerCase()}`).join(' · ');
+              this.showToast(`✓ Đơn ${res.order_no} · Trừ kho: ${summary}`);
+            } else {
+              this.showToast('Đã lưu đơn ' + res.order_no);
+            }
             this.cart.clear();
             this.checkout.open = false;
             this.refreshReports(); this.loadOrders(); this.refreshDashboard(); this.loadFavorites();
@@ -1368,39 +1654,130 @@
           if (v === 'import') this.impInit();
         },
 
-        // ---- Menu edit (prompt-based V1) ----
+        // ---- Product Editor (full modal with recipe tab) ----
+        productEditor: { open: false, tab: 'info', p: null, recipes: [], newRecipeIngId: '', newRecipeQty: '', newRecipeVariant: '' },
         openProductEdit(p) {
-          const name = prompt('Tên sản phẩm', p ? p.name : '');
-          if (!name) return;
-          const priceStr = prompt('Giá gốc (VND)', p ? p.base_price : 25000);
-          const price = parseInt(priceStr, 10);
-          if (!price || price < 0) { alert('Giá không hợp lệ'); return; }
-          const categoryId = parseInt(prompt('ID nhóm (1-6)', p ? p.category_id : 1), 10) || 1;
-          const icon = prompt('Icon emoji', p ? p.icon : '🥤') || '';
-          Models.upsertProduct({
-            id: p?.id, branch_id: this.shop.id, category_id: categoryId,
-            name, base_price: price, icon, active: 1, sort_order: p?.sort_order || 0,
+          this.productEditor = {
+            open: true, tab: 'info',
+            p: p ? { ...p } : { id: null, branch_id: this.shop.id, category_id: this.categories[0]?.id || 1,
+                                name: '', base_price: 25000, icon: '🥤', active: 1, sort_order: 0 },
+            recipes: p ? Models.listRecipesForProduct(p.id) : [],
+            newRecipeIngId: '', newRecipeQty: '', newRecipeVariant: '',
+          };
+        },
+        saveProductEditor() {
+          const p = this.productEditor.p;
+          if (!p.name || !p.base_price) { alert('Cần tên + giá'); return; }
+          const id = Models.upsertProduct({
+            id: p.id, branch_id: this.shop.id, category_id: p.category_id,
+            name: p.name, base_price: parseInt(p.base_price, 10),
+            icon: p.icon, active: p.active ? 1 : 0, sort_order: p.sort_order || 0,
           });
+          // Update productEditor.p.id for new product so recipes can be added
+          this.productEditor.p.id = id;
           this.loadCatalog();
           this.showToast('Đã lưu sản phẩm');
         },
+        addRecipeRow() {
+          const p = this.productEditor.p;
+          if (!p.id) { alert('Lưu sản phẩm trước khi thêm công thức'); return; }
+          const ingId = parseInt(this.productEditor.newRecipeIngId, 10);
+          const qty = parseFloat(this.productEditor.newRecipeQty);
+          if (!ingId || !qty || qty <= 0) { alert('Chọn NVL và nhập số lượng > 0'); return; }
+          const vf = this.productEditor.newRecipeVariant || null;
+          Models.upsertRecipe(p.id, ingId, qty, vf);
+          this.productEditor.recipes = Models.listRecipesForProduct(p.id);
+          this.productEditor.newRecipeIngId = '';
+          this.productEditor.newRecipeQty = '';
+          this.productEditor.newRecipeVariant = '';
+          this.showToast('Đã thêm NVL vào công thức');
+        },
+        removeRecipeRow(r) {
+          if (!confirm('Xoá ' + r.ingredient_name + ' khỏi công thức?')) return;
+          Models.removeRecipe(r.product_id, r.ingredient_id, r.variant_filter);
+          this.productEditor.recipes = Models.listRecipesForProduct(r.product_id);
+          this.showToast('Đã xoá');
+        },
+        recipeTotalCost() {
+          return (this.productEditor.recipes || []).reduce((s, r) => s + Math.round((r.qty_per_unit || 0) * (r.cost_per_unit || 0)), 0);
+        },
+        recipeMarginPct() {
+          const cost = this.recipeTotalCost();
+          const price = parseInt(this.productEditor.p?.base_price, 10) || 0;
+          if (!price) return 0;
+          return Math.round(((price - cost) / price) * 100);
+        },
 
-        // ---- Inventory tx ----
+        // ---- Inventory Editor (multi-row bulk) ----
+        invEditor: {
+          open: false, type: 'purchase', supplier: '', note: '',
+          rows: [{ ingredient_id: '', qty: '', unit_cost: '' }],
+          suppliers: [],
+        },
         openInventoryTx(ing) {
-          const typeStr = prompt('Loại: 1=Nhập, 2=Xuất, 3=Hao hụt, 4=Điều chỉnh', '1');
-          const typeMap = { '1': 'purchase', '2': 'sale', '3': 'waste', '4': 'adjustment' };
-          const type = typeMap[typeStr]; if (!type) return;
-          const qtyStr = prompt('Số lượng (đơn vị: ' + ing.unit + '; âm = xuất)', '0');
-          const qty = parseFloat(qtyStr); if (isNaN(qty)) return;
-          const cost = type === 'purchase' ? parseInt(prompt('Đơn giá nhập', ing.cost_per_unit) || '0', 10) : ing.cost_per_unit;
-          const note = prompt('Ghi chú (tuỳ chọn)', '') || '';
-          Models.addInventoryTx({
-            branch_id: this.shop.id, ingredient_id: ing.id, type, qty,
-            unit_cost: cost, total_cost: Math.round(cost * Math.abs(qty)),
-            ref_type: 'manual', note, user_id: this.user.id,
+          this.invEditor = {
+            open: true, type: 'purchase', supplier: ing?.supplier || '', note: '',
+            rows: ing
+              ? [{ ingredient_id: ing.id, qty: '', unit_cost: ing.cost_per_unit }]
+              : [{ ingredient_id: '', qty: '', unit_cost: '' }],
+            suppliers: Models.listSuppliers(this.shop.id),
+          };
+        },
+        invAddRow() {
+          this.invEditor.rows.push({ ingredient_id: '', qty: '', unit_cost: '' });
+        },
+        invRemoveRow(i) {
+          this.invEditor.rows.splice(i, 1);
+          if (this.invEditor.rows.length === 0) this.invAddRow();
+        },
+        invRowChange(idx) {
+          const row = this.invEditor.rows[idx];
+          if (row.ingredient_id && !row.unit_cost) {
+            const ing = this.ingredients.find(i => i.id === parseInt(row.ingredient_id, 10));
+            if (ing) row.unit_cost = ing.cost_per_unit;
+          }
+        },
+        invTotalCost() {
+          return this.invEditor.rows.reduce((s, r) => {
+            const q = parseFloat(r.qty) || 0;
+            const c = parseInt(r.unit_cost, 10) || 0;
+            return s + Math.round(Math.abs(q) * c);
+          }, 0);
+        },
+        saveInventoryTx() {
+          const type = this.invEditor.type;
+          // Sign convention: nhập = +, xuất = -, hao hụt = -, điều chỉnh = signed by user
+          const signFor = (t, q) => {
+            if (t === 'purchase' || t === 'adjustment') return q;
+            return -Math.abs(q);
+          };
+          const txs = [];
+          this.invEditor.rows.forEach((r) => {
+            const ingId = parseInt(r.ingredient_id, 10);
+            const qty = parseFloat(r.qty);
+            if (!ingId || isNaN(qty) || qty === 0) return;
+            const cost = parseInt(r.unit_cost, 10) || 0;
+            txs.push({
+              branch_id: this.shop.id, ingredient_id: ingId, type,
+              qty: signFor(type, qty),
+              unit_cost: cost,
+              total_cost: Math.round(Math.abs(qty) * cost),
+              supplier: this.invEditor.supplier || null,
+              note: this.invEditor.note || '',
+              user_id: this.user.id,
+            });
           });
+          if (txs.length === 0) { alert('Chưa có dòng hợp lệ'); return; }
+          Models.addInventoryTxBatch(txs);
           this.loadCatalog();
-          this.showToast('Đã ghi nhận');
+          this.invEditor.open = false;
+          this.showToast('Đã ghi nhận ' + txs.length + ' dòng kho');
+        },
+
+        // ---- Deduct summary modal (after import) ----
+        deductSummary: { open: false, title: '', orders: 0, items: 0, lines: [], lowAfter: [] },
+        showDeductSummary(payload) {
+          this.deductSummary = { ...payload, open: true };
         },
 
         // ---- Settings: shop, users ----
@@ -1681,6 +2058,16 @@
             this.impResult = summary;
             this.refreshDashboard(); this.loadOrders(); this.loadCatalog();
             this.showToast('Đã import ' + summary.imported + ' đơn');
+            // Show deduct summary modal if we deducted
+            if (this.impDoDeduct && summary.deduct_lines?.length > 0) {
+              const agg = Models.aggregateDeductions(summary.deduct_lines);
+              const lowAfter = Models.lowStockAlertsAfter(this.shop.id, agg.map(a => a.ingredient_id));
+              this.showDeductSummary({
+                title: 'Import hoàn tất — tổng trừ kho',
+                orders: summary.imported, items: summary.deduct_lines.length,
+                lines: agg, lowAfter,
+              });
+            }
           } catch (e) { this.impMsg = 'Lỗi import: ' + e.message; console.error(e); }
           finally { this.impBusy = false; }
         },

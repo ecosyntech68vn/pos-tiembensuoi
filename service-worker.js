@@ -2,7 +2,7 @@
 // service-worker.js — Offline-first caching
 // Strategy: cache-first cho assets tĩnh, network-first cho data API (GAS, Telegram)
 // ============================================================================
-const CACHE = 'pos-cafe-v3';
+const CACHE = 'pos-cafe-v4';
 const CORE_ASSETS = [
   './',
   './index.html',
