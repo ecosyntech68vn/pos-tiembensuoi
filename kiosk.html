@@ -24,6 +24,7 @@
   <script src="modules/core/event-bus.js"></script>
   <script src="modules/core/icons.js"></script>
   <script src="modules/core/vietqr.js"></script>
+  <script src="modules/core/sepay.js"></script>
   <script src="modules/core/db.js"></script>
   <script src="modules/core/models.js"></script>
   <script src="modules/pos/cart.js"></script>
@@ -347,8 +348,12 @@
         <template x-if="successView">
           <div class="success-overlay">
             <div class="success-card" style="max-width: 480px;">
-              <div class="success-check" x-html="Icons.svg('check','width=48 height=48')"></div>
-              <h2 style="font-size: 22px; font-weight: 700;">Đặt món thành công!</h2>
+              <div class="success-check" x-html="Icons.svg('check','width=48 height=48')" :style="paidView ? 'background: var(--primary); color: #fff;' : ''"></div>
+              <h2 style="font-size: 22px; font-weight: 700;" x-show="!paidView">Đặt món thành công!</h2>
+              <h2 style="font-size: 24px; font-weight: 800; color: var(--primary);" x-show="paidView">💚 Đã thanh toán!</h2>
+              <div x-show="paidView" class="text-sm text-success" style="margin: 8px 0; font-weight: 600;">
+                Cảm ơn quý khách. Nhân viên đã được báo.
+              </div>
               <div class="text-sm text-muted" style="margin: 12px 0;">
                 Mã đơn: <b class="font-mono" x-text="lastOrderNo"></b><br/>
                 Tổng: <span class="num text-primary" style="font-size: 24px; font-weight: 800;" x-text="formatVND(lastOrderTotal)"></span>
@@ -372,13 +377,20 @@
                 Nhân viên đã được thông báo.
               </div>
 
-              <div style="display: flex; gap: 8px; margin-top: 16px; justify-content: center;" x-show="qrPaymentUrl">
+              <!-- Auto-confirm indicator -->
+              <div x-show="qrPaymentUrl && autoConfirmActive" style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 12px; font-size: 13px; color: var(--primary); font-weight: 600;">
+                <span class="spinner" style="width: 14px; height: 14px; border-width: 2px;"></span>
+                <span>Đang chờ thanh toán... auto-confirm trong vài giây</span>
+              </div>
+
+              <div style="display: flex; gap: 8px; margin-top: 12px; justify-content: center;" x-show="qrPaymentUrl">
                 <button class="btn btn-primary btn-sm" @click="markPaid()">✓ Đã thanh toán</button>
                 <button class="btn btn-ghost btn-sm" @click="closeSuccess()">Thanh toán quầy</button>
               </div>
 
               <div class="text-xs text-subtle" style="margin-top: 16px;">
-                Tự đóng sau <span x-text="successCountdown"></span>s...
+                <span x-show="qrPaymentUrl && !paidView">Hết hạn QR sau <b><span x-text="Math.floor(successCountdown/60)"></span>:<span x-text="String(successCountdown%60).padStart(2,'0')"></span></b></span>
+                <span x-show="!qrPaymentUrl">Tự đóng sau <span x-text="successCountdown"></span>s...</span>
               </div>
             </div>
           </div>
@@ -444,6 +456,11 @@
         successCountdown: 60,
         qrPaymentUrl: '',
         bankName: '',
+        autoConfirmActive: false,
+        paidView: false,
+        sepayClient: null,
+        sepayPollTimer: null,
+        bc: null,
 
         // Idle handling
         idleTimer: null,
@@ -470,6 +487,23 @@
           this.shop = Models.getShop();
           this.categories = Models.listCategories(this.shop.id);
           this.products = Models.listProducts(this.shop.id);
+
+          // Sepay client (per-shop)
+          const apiKey = Models.getSepayApiKey(this.shop);
+          if (apiKey && this.shop.sepay_enabled) {
+            this.sepayClient = new Sepay.SepayClient(apiKey);
+          }
+
+          // BroadcastChannel: listen for paid event from POS chính
+          try {
+            this.bc = new BroadcastChannel('ecosyntech-pos');
+            this.bc.onmessage = (ev) => {
+              if (ev.data?.type === 'order_paid' && ev.data.order_id === this.lastOrderId) {
+                this.onAutoPaid();
+              }
+            };
+          } catch (e) { /* BC not supported */ }
+
           this.booted = true;
           this.armIdle();
 
@@ -537,6 +571,11 @@
                 this.closeSuccess();
               }
             }, 1000);
+            // Start Sepay auto-confirm polling
+            if (this.sepayClient && this.qrPaymentUrl) {
+              this.autoConfirmActive = true;
+              this.startSepayPoll();
+            }
           } catch (e) {
             alert('Lỗi đặt món: ' + e.message);
             console.error(e);
@@ -545,14 +584,65 @@
         markPaid() {
           if (!this.lastOrderId) return;
           Models.markOrderPaid(this.lastOrderId, 'transfer');
-          this.closeSuccess();
+          // Broadcast to POS chính
+          try { this.bc?.postMessage({ type: 'order_paid', order_no: this.lastOrderNo, order_id: this.lastOrderId }); } catch (e) {}
+          this.onAutoPaid();
         },
         closeSuccess() {
           this.successView = false;
           this.qrPaymentUrl = '';
           this.lastOrderId = null;
+          this.autoConfirmActive = false;
+          this.paidView = false;
           this._cdTimer && clearInterval(this._cdTimer);
+          this.stopSepayPoll();
           this.armIdle();
+        },
+        // ---- Sepay polling (kiosk) ----
+        startSepayPoll() {
+          this.stopSepayPoll();
+          const ms = (this.shop.sepay_polling_seconds || 5) * 1000;
+          this.sepayPollTimer = setInterval(() => this.checkSepayMatch(), ms);
+          // Immediate first check
+          setTimeout(() => this.checkSepayMatch(), 1200);
+        },
+        stopSepayPoll() {
+          if (this.sepayPollTimer) clearInterval(this.sepayPollTimer);
+          this.sepayPollTimer = null;
+        },
+        async checkSepayMatch() {
+          if (!this.sepayClient || !this.lastOrderId || this.paidView) return;
+          try {
+            const order = Models.getOrderById(this.lastOrderId);
+            if (!order || order.status === 'paid') {
+              if (order && order.status === 'paid') this.onAutoPaid();
+              return;
+            }
+            const txs = await this.sepayClient.listRecentTransactions(20);
+            const match = Sepay.findMatch(txs, order);
+            if (match) {
+              const txId = match.id || match.reference_number || ('SEPAY-' + Date.now());
+              Models.markOrderPaidBySepay(order.id, txId);
+              // Broadcast
+              try { this.bc?.postMessage({ type: 'order_paid', order_no: order.order_no, order_id: order.id }); } catch (e) {}
+              this.onAutoPaid();
+            }
+          } catch (e) { console.warn('[kiosk-sepay]', e.message); }
+        },
+        onAutoPaid() {
+          this.paidView = true;
+          this.autoConfirmActive = false;
+          this.stopSepayPoll();
+          // Close success after 6s of paid view
+          this._cdTimer && clearInterval(this._cdTimer);
+          this.successCountdown = 6;
+          this._cdTimer = setInterval(() => {
+            this.successCountdown--;
+            if (this.successCountdown <= 0) {
+              clearInterval(this._cdTimer);
+              this.closeSuccess();
+            }
+          }, 1000);
         },
 
         // ---- Idle ----

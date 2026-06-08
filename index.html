@@ -35,6 +35,7 @@
   <script src="modules/core/event-bus.js"></script>
   <script src="modules/core/icons.js"></script>
   <script src="modules/core/vietqr.js"></script>
+  <script src="modules/core/sepay.js"></script>
   <script src="modules/core/db.js"></script>
   <script src="modules/core/models.js"></script>
   <script src="modules/auth/session.js"></script>
@@ -913,6 +914,82 @@
                 </div>
               </div>
 
+              <!-- Sepay Auto-confirm (V2.4) -->
+              <div class="card" style="margin-bottom: 16px; border-color: var(--accent); box-shadow: var(--shadow-gold);">
+                <h3 style="margin-bottom: 4px;">🤖 Auto thanh toán Sepay</h3>
+                <div class="text-sm text-muted" style="margin-bottom: 12px;">
+                  Khách chuyển khoản xong, POS tự nhận diện trong 5 giây → đẩy đơn vào Bếp → báo Telegram. Không cần NV check thủ công.
+                </div>
+                <div class="field">
+                  <div class="label">Sepay API Key</div>
+                  <div style="display: flex; gap: 8px;">
+                    <input :type="sepay.showKey ? 'text' : 'password'" class="input font-mono" x-model="sepay.api_key" placeholder="••••••••••••••••" />
+                    <button class="btn btn-ghost btn-sm" @click="sepay.showKey = !sepay.showKey" :title="sepay.showKey ? 'Ẩn' : 'Hiện'">
+                      <span x-text="sepay.showKey ? '🙈' : '👁'"></span>
+                    </button>
+                  </div>
+                  <div class="text-xs text-subtle" style="margin-top: 4px;">
+                    Lấy API Key miễn phí tại <a href="https://my.sepay.vn/" target="_blank" rel="noopener" style="color: var(--primary);">my.sepay.vn</a> (free 1.000 giao dịch/tháng).
+                    Key được lưu mã hoá XOR + base64 trong máy (không gửi đâu cả).
+                  </div>
+                </div>
+                <div class="grid" style="grid-template-columns: 1fr 1fr; gap: 12px;">
+                  <div class="field">
+                    <div class="label">Tần suất poll (giây)</div>
+                    <select class="input" x-model.number="sepay.polling_seconds">
+                      <option :value="3">3 giây (nhanh)</option>
+                      <option :value="5">5 giây (khuyên dùng)</option>
+                      <option :value="10">10 giây</option>
+                      <option :value="30">30 giây (tiết kiệm quota)</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <div class="label">Kích hoạt</div>
+                    <label style="display: flex; align-items: center; gap: 8px; padding: 8px 0;">
+                      <input type="checkbox" x-model="sepay.enabled" />
+                      <span class="text-sm">Bật auto-confirm</span>
+                    </label>
+                  </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-primary btn-sm" @click="saveSepay()">
+                    <span x-html="Icons.svg('check','width=14 height=14')"></span> Lưu Sepay
+                  </button>
+                  <button class="btn btn-ghost btn-sm" @click="testSepay()">Test kết nối</button>
+                </div>
+                <div class="text-xs" style="margin-top: 8px;" :class="sepayMsg.startsWith('✓') ? 'text-success' : sepayMsg.startsWith('✗') ? 'text-danger' : 'text-muted'" x-text="sepayMsg"></div>
+                <div x-show="sepay.enabled && sepayPollTimer" class="text-xs text-success" style="margin-top: 8px;">
+                  ● Đang poll Sepay mỗi <span x-text="sepay.polling_seconds"></span>s
+                </div>
+              </div>
+
+              <!-- Telegram per-shop notify (V2.4) -->
+              <div class="card" style="margin-bottom: 16px;">
+                <h3 style="margin-bottom: 4px;">📲 Báo Telegram khi có thanh toán</h3>
+                <div class="text-sm text-muted" style="margin-bottom: 12px;">
+                  Mỗi đơn Sepay auto-confirm → bot gửi tin nhắn cho bạn ngay. Chat với <b>@BotFather</b> tạo bot mới, chat với <b>@userinfobot</b> lấy chat ID.
+                </div>
+                <div class="field">
+                  <div class="label">Bot Token</div>
+                  <input class="input font-mono" x-model="tg2.bot_token" placeholder="123456:ABC-DEF..." />
+                </div>
+                <div class="field">
+                  <div class="label">Chat ID</div>
+                  <input class="input font-mono" x-model="tg2.chat_id" placeholder="VD: 123456789" />
+                </div>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" x-model="tg2.enabled" />
+                  <span class="text-sm">Báo khi có Sepay auto-confirm</span>
+                </label>
+                <div style="display: flex; gap: 8px; margin-top: 12px;">
+                  <button class="btn btn-primary btn-sm" @click="saveTG2()">
+                    <span x-html="Icons.svg('check','width=14 height=14')"></span> Lưu Telegram
+                  </button>
+                  <button class="btn btn-ghost btn-sm" @click="testTG2()">Gửi tin nhắn test</button>
+                </div>
+                <div class="text-xs" style="margin-top: 8px;" :class="tg2Msg.startsWith('✓') ? 'text-success' : tg2Msg.startsWith('✗') ? 'text-danger' : 'text-muted'" x-text="tg2Msg"></div>
+              </div>
+
               <!-- Kiosk mode -->
               <div class="card" style="margin-bottom: 16px;">
                 <h3 style="margin-bottom: 12px;">🔒 Chế độ Kiosk — Khách tự order</h3>
@@ -1628,6 +1705,19 @@
         payment: { bank_bin: '', account_no: '', account_name: '', qr_enabled: false },
         paymentMsg: '',
 
+        // ---- Sepay auto-confirm (V2.4) ----
+        sepay: { api_key: '', enabled: false, polling_seconds: 5, showKey: false },
+        sepayMsg: '',
+        sepayPollTimer: null,
+        sepayBusy: false,
+
+        // ---- Telegram per-shop (V2.4) ----
+        tg2: { bot_token: '', chat_id: '', enabled: false },
+        tg2Msg: '',
+
+        // ---- Broadcast channel (cross-tab) ----
+        bc: null,
+
         // ---- Receipt (V2.3) ----
         receipt: { open: false, order: null, items: [], qrUrl: '', width: 80 },
 
@@ -1695,6 +1785,17 @@
               account_name: this.shop?.payment_account_name || '',
               qr_enabled: !!this.shop?.payment_qr_enabled,
             };
+            this.sepay = {
+              api_key: Models.getSepayApiKey(this.shop) || '',
+              enabled: !!this.shop?.sepay_enabled,
+              polling_seconds: this.shop?.sepay_polling_seconds || 5,
+              showKey: false,
+            };
+            this.tg2 = {
+              bot_token: this.shop?.telegram_bot_token || '',
+              chat_id: this.shop?.telegram_chat_id || '',
+              enabled: !!this.shop?.telegram_notify_enabled,
+            };
             this.loadCatalog();
             this.users = Models.listUsers(this.shop.id);
             const cfg = GASClient.getConfig();
@@ -1702,6 +1803,20 @@
             const tg = TelegramBot.getConfig();
             this.tgToken = tg.bot_token || ''; this.tgChat = tg.chat_id || '';
             SyncQueue.start(this.shop.id, 60000);
+            // BroadcastChannel cross-tab sync (V2.4)
+            try {
+              this.bc = new BroadcastChannel('ecosyntech-pos');
+              this.bc.onmessage = async (ev) => {
+                if (ev.data?.type === 'order_paid') {
+                  await DB.reload();
+                  this.loadKitchen(); this.loadOrders(); this.refreshDashboard();
+                  this.showToast('💚 Đơn ' + (ev.data.order_no || '') + ' đã thanh toán');
+                  this.ringBell();
+                }
+              };
+            } catch (e) { /* BC not supported */ }
+            // Sepay auto-confirm polling (V2.4)
+            if (this.sepay.enabled && this.sepay.api_key) this.startSepayPolling();
             // Kitchen poll (3s) for new self-order Kiosk submissions
             this.kitchenLastPoll = Date.now();
             this.kitchenPollTimer = setInterval(() => this.pollKitchen(), 3000);
@@ -2138,6 +2253,84 @@
               o.stop(ctx.currentTime + i * 0.15 + 0.2);
             });
           } catch (e) { /* AudioContext may need user gesture first time */ }
+        },
+
+        // ---- Sepay auto-confirm (V2.4) ----
+        saveSepay() {
+          Models.updateSepayConfig(this.shop.id, this.sepay);
+          this.shop = Models.getShop();
+          this.sepayMsg = '✓ Đã lưu cấu hình Sepay.';
+          this.showToast('Đã lưu Sepay config');
+          this.stopSepayPolling();
+          if (this.sepay.enabled && this.sepay.api_key) this.startSepayPolling();
+        },
+        async testSepay() {
+          this.sepayMsg = 'Đang test ping Sepay...';
+          if (!this.sepay.api_key) { this.sepayMsg = '✗ Chưa nhập API Key'; return; }
+          const client = new Sepay.SepayClient(this.sepay.api_key);
+          const r = await client.ping();
+          this.sepayMsg = r.ok ? '✓ Sepay OK — đọc được ' + r.count + ' giao dịch gần nhất' : '✗ ' + r.reason;
+        },
+        startSepayPolling() {
+          if (this.sepayPollTimer) clearInterval(this.sepayPollTimer);
+          const ms = (this.sepay.polling_seconds || 5) * 1000;
+          this.sepayPollTimer = setInterval(() => this.pollSepayMatch(), ms);
+          // Run once immediately
+          setTimeout(() => this.pollSepayMatch(), 1000);
+        },
+        stopSepayPolling() {
+          if (this.sepayPollTimer) clearInterval(this.sepayPollTimer);
+          this.sepayPollTimer = null;
+        },
+        async pollSepayMatch() {
+          if (this.sepayBusy || !this.shop || !this.sepay.enabled || !this.sepay.api_key) return;
+          if (!navigator.onLine) return;
+          this.sepayBusy = true;
+          try {
+            const waiting = Models.listOrdersWaitingPayment(this.shop.id, 10);
+            if (!waiting.length) return;
+            const client = new Sepay.SepayClient(this.sepay.api_key);
+            const txs = await client.listRecentTransactions(20);
+            for (const order of waiting) {
+              const match = Sepay.findMatch(txs, order);
+              if (match) {
+                const txId = match.id || match.reference_number || ('SEPAY-' + Date.now());
+                Models.markOrderPaidBySepay(order.id, txId);
+                this.showToast('💚 Đơn ' + order.order_no + ' auto-confirm ' + this.formatVND(order.total));
+                this.ringBell();
+                // Broadcast to other tabs (Kiosk)
+                try { this.bc?.postMessage({ type: 'order_paid', order_no: order.order_no, order_id: order.id }); } catch (e) {}
+                // Telegram notify (non-blocking)
+                if (this.tg2.enabled && this.tg2.bot_token && this.tg2.chat_id) {
+                  TelegramBot.notifyOrderPaid(this.shop, Models.getOrderById(order.id), match).catch(() => {});
+                }
+                Models.logSync({ entity: 'sepay_match', entity_id: order.id, action: 'pull', status: 'success', payload: { tx_id: txId } });
+              }
+            }
+            // Refresh views if currently on kitchen/orders/dashboard
+            if (this.view === 'kitchen') this.loadKitchen();
+            if (this.view === 'orders') this.loadOrders();
+            if (this.view === 'dashboard') this.refreshDashboard();
+          } catch (e) {
+            console.warn('[sepay-poll]', e.message);
+          } finally {
+            this.sepayBusy = false;
+          }
+        },
+
+        // ---- Telegram per-shop (V2.4) ----
+        saveTG2() {
+          Models.updateTelegramPerShop(this.shop.id, this.tg2);
+          this.shop = Models.getShop();
+          this.tg2Msg = '✓ Đã lưu cấu hình Telegram.';
+          this.showToast('Đã lưu Telegram per-shop');
+        },
+        async testTG2() {
+          if (!this.tg2.bot_token || !this.tg2.chat_id) { this.tg2Msg = '✗ Cần bot token + chat ID'; return; }
+          this.tg2Msg = 'Đang gửi test...';
+          const fakeShop = { ...this.shop, telegram_notify_enabled: 1, telegram_bot_token: this.tg2.bot_token, telegram_chat_id: this.tg2.chat_id };
+          const r = await TelegramBot.sendForShop(fakeShop, '🔔 <b>Test từ EcoSynTech POS</b>\nNếu bạn thấy tin nhắn này, cấu hình đúng!');
+          this.tg2Msg = r ? '✓ Đã gửi test, kiểm tra Telegram của bạn.' : '✗ Telegram fail (kiểm tra bot token + chat ID)';
         },
 
         // ---- Payment Config (V2.3) ----
