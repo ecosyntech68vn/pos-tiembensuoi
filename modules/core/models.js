@@ -57,8 +57,9 @@
       `, [branchId, since]);
     },
     markOrderPaidBySepay(orderId, sepayTxId) {
+      // payment_method='qr' (in CHECK); Sepay distinguishable via sepay_tx_id IS NOT NULL
       DB.run(
-        `UPDATE orders SET status='paid', payment_method='sepay_qr', sepay_tx_id=?, paid_at=?, sync_status='pending'
+        `UPDATE orders SET status='paid', payment_method='qr', sepay_tx_id=?, paid_at=?, sync_status='pending'
          WHERE id=? AND (sepay_tx_id IS NULL OR sepay_tx_id='')`,
         [String(sepayTxId), Date.now(), orderId]
       );
