@@ -155,8 +155,9 @@
     });
 
     await test('T2. Schema v3 columns present', async () => {
-      const oc = DB.exec("PRAGMA table_info(orders)")[0].values.map(r => r[1]);
-      const bc = DB.exec("PRAGMA table_info(branches)")[0].values.map(r => r[1]);
+      // DB.exec wrapper returns array of {col_name: value} objects
+      const oc = DB.exec("PRAGMA table_info(orders)").map(r => r.name);
+      const bc = DB.exec("PRAGMA table_info(branches)").map(r => r.name);
       ['sepay_tx_id','table_number','kitchen_status','order_source','assigned_user_id','payment_qr_url'].forEach(c => assert(oc.includes(c), 'orders.'+c));
       ['sepay_api_key','sepay_enabled','sepay_polling_seconds','payment_bank_bin','telegram_bot_token','telegram_chat_id'].forEach(c => assert(bc.includes(c), 'branches.'+c));
       return `orders ${oc.length} cols, branches ${bc.length} cols`;
