@@ -1337,8 +1337,13 @@
                       <input type="number" step="0.1" class="input num" x-model="productEditor.newRecipeQty" placeholder="VD: 50" />
                     </div>
                     <div class="field" style="margin: 0;">
-                      <div class="label">Áp dụng cho (variant)</div>
-                      <input class="input" x-model="productEditor.newRecipeVariant" placeholder="VD: L (để trống = mọi size)" />
+                      <div class="label">Áp dụng cho size</div>
+                      <select class="input" x-model="productEditor.newRecipeVariant">
+                        <option value="">Tất cả (mọi size)</option>
+                        <option value="S">Size S</option>
+                        <option value="M">Size M</option>
+                        <option value="L">Size L</option>
+                      </select>
                     </div>
                     <button class="btn btn-primary btn-sm" @click="addRecipeRow()">+ Thêm</button>
                   </div>
