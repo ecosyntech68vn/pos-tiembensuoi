@@ -802,22 +802,154 @@ h3, .h3 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 0; }
    Print stylesheet
    ============================================================================ */
 @media print {
-  .sidebar, .topbar, .bottom-nav, .content-footer, .no-print { display: none !important; }
-  .app-shell { display: block; }
-  .content { padding: 0; max-width: 80mm; margin: 0; }
-  body { background: #fff; color: #000; }
-  /* Receipt: show only this, full-bleed at 80mm */
+  /* Hide everything by default */
+  html, body { background: #fff !important; color: #000 !important; margin: 0 !important; padding: 0 !important; }
   body * { visibility: hidden !important; }
+  /* Show only receipt + descendants */
   .receipt, .receipt * { visibility: visible !important; }
-  .modal-backdrop { position: static !important; background: none !important; padding: 0 !important; display: block !important; }
-  .modal { position: static !important; box-shadow: none !important; max-width: 80mm !important; max-height: none !important; overflow: visible !important; animation: none !important; border-radius: 0 !important; }
-  .receipt { width: 80mm; }
-  @page { size: 80mm auto; margin: 0; }
+  /* Receipt floats at top-left, no margins */
+  .receipt {
+    position: absolute !important;
+    top: 0 !important; left: 0 !important;
+    width: var(--receipt-w, 80mm) !important;
+    padding: 4mm !important;
+    margin: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-family: 'Courier New', 'JetBrains Mono', monospace !important;
+    font-size: 11px !important;
+    line-height: 1.35 !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+  .receipt img { max-width: 100% !important; }
+  /* Hide controls + sidebar + topbar + bottom-nav */
+  .no-print, .modal-foot, .sidebar, .topbar, .bottom-nav, .content-footer, .modal-backdrop > .modal-foot { display: none !important; }
+  /* Ensure modal backdrop doesn't show overlay */
+  .modal-backdrop { position: static !important; background: none !important; padding: 0 !important; }
+  .modal { position: static !important; box-shadow: none !important; max-width: none !important; max-height: none !important; overflow: visible !important; animation: none !important; border-radius: 0 !important; padding: 0 !important; }
+  /* Page size from receipt-w variable on html */
+  @page { margin: 0; }
 }
+/* Width presets — set via inline style on receipt before print */
+.receipt[data-width="58"] { --receipt-w: 58mm; max-width: 58mm; }
+.receipt[data-width="80"] { --receipt-w: 80mm; max-width: 80mm; }
+.receipt[data-width="a4"] { --receipt-w: 190mm; max-width: 190mm; padding: 16mm !important; }
 
 /* Big text mode */
 html.big-text { font-size: 17.5px; } /* 14 * 1.25 ≈ 17.5 */
 html.big-text body { font-size: 17.5px; }
+
+/* ============================================================================
+   Category color palette + product card polish (V2.4.4)
+   ============================================================================ */
+:root {
+  --cat-1: #6f4e37;  /* Cà phê - nâu */
+  --cat-2: #c084fc;  /* Trà sữa - tím nhạt */
+  --cat-3: #84cc16;  /* Trà trái cây - xanh trà */
+  --cat-4: #fb923c;  /* Sinh tố/Nước ép - cam */
+  --cat-5: #38bdf8;  /* Đá xay/Khác - xanh lạnh */
+  --cat-6: #d4af37;  /* Topping - gold */
+  --cat-default: #94a3b8;
+}
+.product-card {
+  position: relative;
+  border-top: 3px solid var(--card-color, var(--cat-default)) !important;
+  overflow: hidden;
+}
+.product-card .product-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--card-color, var(--cat-default)) 12%, transparent);
+  border-radius: var(--r-full);
+  width: 56px; height: 56px; margin: 4px auto 0;
+  transition: transform var(--t-fast) var(--ease-out);
+}
+.product-card:hover .product-icon { transform: scale(1.08) rotate(-3deg); }
+
+/* Sidebar cart badge */
+.nav-item .nav-badge {
+  margin-left: auto;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color: #1f1300;
+  padding: 1px 8px;
+  border-radius: var(--r-full);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+/* Empty cart illustration */
+.empty-cart-svg {
+  width: 80px; height: 80px;
+  margin: 0 auto 8px;
+  display: block;
+}
+.empty-cart-svg .steam path {
+  stroke-dasharray: 6;
+  animation: steam-rise 2.4s ease-in-out infinite;
+}
+@keyframes steam-rise {
+  0% { stroke-dashoffset: 0; opacity: 0.4; }
+  50% { stroke-dashoffset: -8; opacity: 0.8; }
+  100% { stroke-dashoffset: -16; opacity: 0.4; }
+}
+
+/* Confetti for paid success */
+.confetti {
+  position: fixed; inset: 0; pointer-events: none; z-index: 999;
+  overflow: hidden;
+}
+.confetti span {
+  position: absolute;
+  width: 8px; height: 12px;
+  background: var(--accent);
+  opacity: 0.85;
+  border-radius: 2px;
+  animation: confetti-fall 1.4s ease-in forwards;
+  top: -20px;
+}
+@keyframes confetti-fall {
+  0% { transform: translateY(0) rotate(0); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* ============================================================================
+   THEME PRESETS (V2.4.4) — switch via [data-theme="X"] on html element
+   ============================================================================ */
+[data-theme="royal-navy"] {
+  --primary: #1e3a8a;        /* navy 800 */
+  --primary-hover: #1e293b;
+  --primary-light: #e0e7ff;
+  --accent: #d4af37;
+  --accent-hover: #b8941f;
+  --accent-light: #fef3c7;
+}
+[data-theme="cafe-brown"] {
+  --primary: #6f4e37;        /* nâu cafe */
+  --primary-hover: #5a3f2c;
+  --primary-light: #f5e6d3;
+  --accent: #d4a574;
+  --accent-hover: #b88e5f;
+  --accent-light: #fbe7c6;
+}
+[data-theme="tropical"] {
+  --primary: #06b6d4;        /* turquoise */
+  --primary-hover: #0891b2;
+  --primary-light: #ecfeff;
+  --accent: #fb923c;         /* orange */
+  --accent-hover: #ea580c;
+  --accent-light: #ffedd5;
+}
+[data-theme="minimal-mono"] {
+  --primary: #18181b;        /* near-black */
+  --primary-hover: #000000;
+  --primary-light: #f4f4f5;
+  --accent: #71717a;
+  --accent-hover: #52525b;
+  --accent-light: #e4e4e7;
+}
 
 /* ============================================================================
    Utility
