@@ -110,6 +110,19 @@
       safeAlter('branches', 'payment_qr_enabled',    'INTEGER DEFAULT 0');
       recordVersion(2);
     }
+    // ---- v3: Sepay auto-confirm + Telegram per-shop ----
+    if (cur < 3) {
+      console.log('[migrate] v2 → v3');
+      safeAlter('orders',   'sepay_tx_id',              'TEXT');
+      safeAlter('orders',   'payment_expired_at',       'INTEGER');
+      safeAlter('branches', 'sepay_api_key',            'TEXT');
+      safeAlter('branches', 'sepay_enabled',            'INTEGER DEFAULT 0');
+      safeAlter('branches', 'sepay_polling_seconds',    'INTEGER DEFAULT 5');
+      safeAlter('branches', 'telegram_bot_token',       'TEXT');
+      safeAlter('branches', 'telegram_chat_id',         'TEXT');
+      safeAlter('branches', 'telegram_notify_enabled',  'INTEGER DEFAULT 0');
+      recordVersion(3);
+    }
   }
 
   async function seedIfEmpty() {
@@ -243,5 +256,16 @@
     EventBus.emit('db:reset', {});
   }
 
-  global.DB = { init, exec, run, lastInsertId, persist, exportBlob, importBlob, resetAll };
+  /** Re-read SQLite blob from IndexedDB (cross-tab sync after other tab persists changes) */
+  async function reload() {
+    const saved = await idbGet();
+    if (!saved) return false;
+    if (db) db.close();
+    db = new SQL.Database(new Uint8Array(saved));
+    global.dbInstance = db;
+    EventBus.emit('db:reloaded', {});
+    return true;
+  }
+
+  global.DB = { init, exec, run, lastInsertId, persist, exportBlob, importBlob, resetAll, reload };
 })(window);

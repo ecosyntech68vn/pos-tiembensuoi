@@ -24,6 +24,50 @@
          payment.qr_enabled ? 1 : 0, branchId]
       );
     },
+    updateSepayConfig(branchId, cfg) {
+      // api_key stored as XOR-obfuscated base64
+      const obf = cfg.api_key ? Sepay.xorObfuscate(cfg.api_key) : null;
+      DB.run(
+        `UPDATE branches SET sepay_api_key=?, sepay_enabled=?, sepay_polling_seconds=? WHERE id=?`,
+        [obf, cfg.enabled ? 1 : 0, cfg.polling_seconds || 5, branchId]
+      );
+    },
+    getSepayApiKey(shop) {
+      if (!shop || !shop.sepay_api_key) return '';
+      return Sepay.xorDeobfuscate(shop.sepay_api_key);
+    },
+    updateTelegramPerShop(branchId, cfg) {
+      DB.run(
+        `UPDATE branches SET telegram_bot_token=?, telegram_chat_id=?, telegram_notify_enabled=? WHERE id=?`,
+        [cfg.bot_token || null, cfg.chat_id || null, cfg.enabled ? 1 : 0, branchId]
+      );
+    },
+    /** Orders waiting for Sepay payment in last N minutes */
+    listOrdersWaitingPayment(branchId, withinMinutes) {
+      const since = Date.now() - (withinMinutes || 10) * 60000;
+      return DB.exec(`
+        SELECT id, order_no, total, table_number, order_source, created_at
+        FROM orders
+        WHERE branch_id=? AND status='pending'
+          AND order_source='self_order'
+          AND (sepay_tx_id IS NULL OR sepay_tx_id='')
+          AND created_at >= ?
+        ORDER BY created_at DESC
+        LIMIT 50
+      `, [branchId, since]);
+    },
+    markOrderPaidBySepay(orderId, sepayTxId) {
+      DB.run(
+        `UPDATE orders SET status='paid', payment_method='sepay_qr', sepay_tx_id=?, paid_at=?, sync_status='pending'
+         WHERE id=? AND (sepay_tx_id IS NULL OR sepay_tx_id='')`,
+        [String(sepayTxId), Date.now(), orderId]
+      );
+      DB.persist();
+    },
+    getOrderById(orderId) {
+      const rows = DB.exec("SELECT * FROM orders WHERE id=?", [orderId]);
+      return rows[0] || null;
+    },
 
     // ---- Users ----
     listUsers(branchId) {
