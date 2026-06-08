@@ -1,0 +1,33 @@
+{
+  "name": "KiotViet",
+  "confidence": "medium",
+  "note": "Mapping dựa trên export CSV KiotViet phiên bản phổ biến. KHÁCH PHẢI verify lại bước Map cột vì KiotViet có nhiều bản export khác nhau.",
+  "detect_headers": [
+    "Mã đơn", "Mã hóa đơn", "Mã hoá đơn", "Ngày bán", "Thời gian", "Khách hàng", "Tổng tiền"
+  ],
+  "delimiter": ",",
+  "encoding": "UTF-8",
+  "fields": {
+    "order_no":        ["Mã đơn", "Mã hóa đơn", "Mã hoá đơn"],
+    "created_at":      ["Thời gian", "Ngày bán", "Ngày tạo"],
+    "customer":        ["Khách hàng", "Tên khách"],
+    "product_name":    ["Tên hàng hóa", "Tên sản phẩm", "Sản phẩm"],
+    "qty":             ["Số lượng", "SL"],
+    "unit_price":      ["Đơn giá", "Giá bán"],
+    "line_total":      ["Thành tiền", "Tổng tiền hàng"],
+    "discount":        ["Giảm giá", "Chiết khấu"],
+    "total":           ["Tổng tiền", "Tổng cộng", "Thành tiền hóa đơn"],
+    "payment_method":  ["Phương thức thanh toán", "Hình thức TT"],
+    "note":            ["Ghi chú"]
+  },
+  "date_formats": ["DD/MM/YYYY HH:mm", "DD/MM/YYYY HH:mm:ss", "DD/MM/YYYY", "YYYY-MM-DD HH:mm:ss"],
+  "payment_map": {
+    "Tiền mặt": "cash",
+    "Chuyển khoản": "transfer",
+    "Thẻ": "card",
+    "QR": "qr",
+    "QR Code": "qr"
+  },
+  "row_per": "item",
+  "_row_per_note": "KiotViet xuất 1 row per item. Cần group theo Mã đơn để gộp items thành 1 order."
+}

@@ -1,0 +1,32 @@
+{
+  "name": "MISA CukCuk",
+  "confidence": "low",
+  "note": "Mapping suy đoán cho MISA CukCuk. KHÁCH verify với CSV thật, hoặc dùng tab Map cột để chỉnh.",
+  "detect_headers": [
+    "Số chứng từ", "Ngày chứng từ", "Thành tiền", "Tên mặt hàng"
+  ],
+  "delimiter": ",",
+  "encoding": "UTF-8",
+  "fields": {
+    "order_no":        ["Số chứng từ", "Mã chứng từ", "Số HĐ"],
+    "created_at":      ["Ngày chứng từ", "Ngày", "Ngày bán"],
+    "customer":        ["Khách hàng", "Tên khách hàng"],
+    "product_name":    ["Tên mặt hàng", "Mặt hàng", "Tên SP"],
+    "qty":             ["Số lượng", "SL"],
+    "unit_price":      ["Đơn giá"],
+    "line_total":      ["Thành tiền"],
+    "discount":        ["Chiết khấu", "Tiền chiết khấu"],
+    "total":           ["Tổng tiền thanh toán", "Tổng cộng", "Tổng tiền"],
+    "payment_method":  ["Hình thức thanh toán", "Phương thức thanh toán"],
+    "note":            ["Diễn giải", "Ghi chú"]
+  },
+  "date_formats": ["DD/MM/YYYY", "DD/MM/YYYY HH:mm", "YYYY-MM-DD"],
+  "payment_map": {
+    "Tiền mặt": "cash",
+    "Chuyển khoản": "transfer",
+    "Thẻ tín dụng": "card",
+    "Thẻ": "card",
+    "QR Code": "qr"
+  },
+  "row_per": "item"
+}

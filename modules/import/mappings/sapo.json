@@ -1,0 +1,32 @@
+{
+  "name": "Sapo FnB",
+  "confidence": "medium",
+  "note": "Mapping cho Sapo FnB export. Cột tiếng Việt + 1 số tiếng Anh.",
+  "detect_headers": [
+    "Mã đơn hàng", "Ngày tạo đơn", "Tổng thanh toán", "Tên sản phẩm"
+  ],
+  "delimiter": ",",
+  "encoding": "UTF-8",
+  "fields": {
+    "order_no":        ["Mã đơn hàng", "Số đơn"],
+    "created_at":      ["Ngày tạo đơn", "Thời điểm tạo", "Created Date"],
+    "customer":        ["Khách hàng", "Tên khách hàng"],
+    "product_name":    ["Tên sản phẩm", "Tên SP"],
+    "qty":             ["Số lượng"],
+    "unit_price":      ["Đơn giá"],
+    "line_total":      ["Thành tiền"],
+    "discount":        ["Chiết khấu", "Giảm giá"],
+    "total":           ["Tổng thanh toán", "Total"],
+    "payment_method":  ["Phương thức thanh toán"],
+    "note":            ["Ghi chú", "Ghi chú đơn hàng"]
+  },
+  "date_formats": ["DD/MM/YYYY HH:mm", "YYYY-MM-DD HH:mm:ss", "DD/MM/YYYY"],
+  "payment_map": {
+    "Tiền mặt": "cash",
+    "Chuyển khoản": "transfer",
+    "Quẹt thẻ": "card",
+    "QR Code": "qr",
+    "Ví điện tử": "qr"
+  },
+  "row_per": "item"
+}
