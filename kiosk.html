@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="vi" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="theme-color" content="#16a34a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="assets/icons/logo.svg" />
+  <title>Đặt món · Kiosk</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="assets/styles.css" />
+
+  <script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js"></script>
+
+  <script src="config/business-rules.js"></script>
+  <script src="config/payment-methods.js"></script>
+  <script src="modules/core/utils.js"></script>
+  <script src="modules/core/event-bus.js"></script>
+  <script src="modules/core/icons.js"></script>
+  <script src="modules/core/db.js"></script>
+  <script src="modules/core/models.js"></script>
+  <script src="modules/pos/cart.js"></script>
+
+  <style>
+    /* Kiosk-specific overrides */
+    body { background: var(--bg-base); overflow: hidden; }
+    .kiosk-shell { display: flex; flex-direction: column; height: 100vh; }
+    .kiosk-header {
+      height: 64px;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 16px;
+      padding: 0 20px;
+      position: sticky; top: 0; z-index: 10;
+    }
+    .kiosk-shop { font-weight: 700; font-size: 16px; }
+    .table-badge {
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      color: #1f1300;
+      padding: 6px 14px;
+      border-radius: var(--r-full);
+      font-weight: 700;
+      font-size: 14px;
+    }
+    .cart-fab {
+      position: relative;
+      background: var(--primary);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: var(--r-full);
+      border: 0;
+      font-weight: 600;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .cart-fab .badge { position: relative; top: 0; right: 0; border: 0; min-width: 22px; height: 22px; background: var(--accent); color: #1f1300; }
+
+    .kiosk-body { flex: 1; overflow: hidden; display: grid; grid-template-rows: auto 1fr; }
+    .kiosk-cats {
+      display: flex; gap: 8px; overflow-x: auto;
+      padding: 14px 20px; background: var(--bg-card); border-bottom: 1px solid var(--border);
+    }
+    .kiosk-cats button {
+      flex-shrink: 0;
+      padding: 10px 18px;
+      border-radius: var(--r-full);
+      border: 1.5px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-secondary);
+      font-weight: 500;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .kiosk-cats button.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .kiosk-grid {
+      overflow-y: auto;
+      padding: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      padding-bottom: 200px;
+    }
+    .kiosk-product {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 200ms var(--ease-out);
+      box-shadow: var(--shadow-xs);
+    }
+    .kiosk-product:active { transform: scale(0.97); }
+    .kiosk-product .kp-icon { font-size: 48px; line-height: 1; }
+    .kiosk-product .kp-name { font-weight: 600; font-size: 16px; margin-top: 12px; min-height: 44px; line-height: 1.3; }
+    .kiosk-product .kp-price { font-size: 18px; font-weight: 700; color: var(--primary); margin-top: 8px; }
+    .kiosk-product .kp-add {
+      margin-top: 12px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: var(--r-md);
+      font-weight: 600;
+      font-size: 14px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* Bottom submit bar */
+    .kiosk-submit-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      padding: 16px 20px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+      z-index: 20;
+      padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    }
+    .kiosk-submit {
+      background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+      color: #1f1300;
+      border: 0;
+      width: 100%;
+      padding: 18px 24px;
+      border-radius: var(--r-lg);
+      font-weight: 700;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: var(--shadow-md);
+      display: flex; align-items: center; justify-content: center; gap: 12px;
+    }
+    .kiosk-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* Cart sheet */
+    .kiosk-sheet-backdrop {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 30;
+      animation: fadeIn 200ms var(--ease-out);
+    }
+    .kiosk-sheet {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: var(--bg-card);
+      border-radius: var(--r-xl) var(--r-xl) 0 0;
+      max-height: 80vh; overflow-y: auto;
+      z-index: 40;
+      animation: sheetIn 300ms var(--ease-out);
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+    @keyframes sheetIn { from { transform: translateY(100%); } to { transform: none; } }
+    .kiosk-sheet-head { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .kiosk-sheet-body { padding: 12px 20px; }
+    .kiosk-cart-item {
+      padding: 12px 0; border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .kiosk-cart-item:last-child { border-bottom: 0; }
+    .ki-name { flex: 1; font-weight: 500; }
+    .ki-qty-ctrl { display: flex; align-items: center; gap: 6px; }
+    .ki-qty-btn { width: 32px; height: 32px; border-radius: var(--r-full); border: 1px solid var(--border-strong); background: var(--bg-card); font-size: 18px; cursor: pointer; }
+    .ki-line { font-weight: 600; color: var(--primary); min-width: 80px; text-align: right; }
+
+    /* Success screen */
+    .success-overlay {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.85);
+      z-index: 50; display: flex; align-items: center; justify-content: center;
+      animation: fadeIn 200ms var(--ease-out);
+    }
+    .success-card {
+      background: var(--bg-card);
+      padding: 40px;
+      border-radius: var(--r-xl);
+      text-align: center;
+      max-width: 400px;
+      width: 90%;
+      box-shadow: var(--shadow-xl);
+    }
+    .success-check {
+      width: 80px; height: 80px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: var(--r-full);
+      display: inline-flex; align-items: center; justify-content: center;
+      margin-bottom: 20px;
+    }
+    .success-check svg { width: 48px; height: 48px; stroke-width: 2; }
+
+    /* Admin bypass */
+    .admin-bypass {
+      position: fixed; top: 4px; right: 4px;
+      width: 40px; height: 40px;
+      opacity: 0; z-index: 60; cursor: default;
+    }
+
+    /* Idle warning */
+    .idle-warning {
+      position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+      background: var(--warning); color: #fff;
+      padding: 12px 20px; border-radius: var(--r-md);
+      font-weight: 600; font-size: 14px;
+      box-shadow: var(--shadow-lg);
+      z-index: 25;
+      animation: pulseFade 1s ease-in-out infinite;
+    }
+    @keyframes pulseFade { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+    /* PIN admin modal */
+    .pin-admin {
+      position: fixed; inset: 0; background: rgba(15,23,42,0.85);
+      display: flex; align-items: center; justify-content: center; z-index: 70;
+    }
+
+    @media (max-width: 640px) {
+      .kiosk-grid { grid-template-columns: repeat(2, 1fr); padding: 12px; gap: 10px; }
+      .kiosk-product { padding: 14px 8px; }
+      .kiosk-product .kp-icon { font-size: 36px; }
+      .kiosk-product .kp-name { font-size: 14px; min-height: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <div x-data="kiosk()" x-init="boot()" x-cloak>
+
+    <!-- Splash -->
+    <template x-if="!booted">
+      <div class="splash">
+        <div class="splash-content">
+          <div class="logo-mark logo-mark--xl">ES</div>
+          <div class="spinner"></div>
+          <div class="splash-msg">Đang tải menu...</div>
+        </div>
+      </div>
+    </template>
+
+    <!-- Main kiosk -->
+    <template x-if="booted">
+      <div class="kiosk-shell">
+
+        <!-- Hidden admin bypass tap zone -->
+        <div class="admin-bypass" @click="bypassTap()"></div>
+
+        <!-- Header -->
+        <div class="kiosk-header">
+          <div class="logo-mark logo-mark--md">ES</div>
+          <div style="flex: 1; min-width: 0;">
+            <div class="kiosk-shop" x-text="shop?.name || 'Quán'"></div>
+            <div class="text-xs text-subtle">Đặt món tự phục vụ</div>
+          </div>
+          <div class="table-badge" x-show="tableNo">
+            <span x-html="Icons.svg('table','width=14 height=14')" style="display:inline-flex; vertical-align: middle; margin-right: 4px;"></span>
+            Bàn <span x-text="tableNo"></span>
+          </div>
+          <button class="cart-fab" @click="cartOpen=true" x-show="cart.count() > 0">
+            <span x-html="Icons.svg('cart','width=18 height=18')"></span>
+            <span x-text="cart.count()"></span>
+          </button>
+        </div>
+
+        <!-- Body -->
+        <div class="kiosk-body">
+          <div class="kiosk-cats">
+            <button :class="catFilter===0?'active':''" @click="catFilter=0">Tất cả</button>
+            <template x-for="c in categories" :key="c.id">
+              <button :class="catFilter===c.id?'active':''" @click="catFilter=c.id">
+                <span x-text="c.icon"></span> <span x-text="c.name"></span>
+              </button>
+            </template>
+          </div>
+
+          <div class="kiosk-grid">
+            <template x-for="p in filteredProducts()" :key="p.id">
+              <div class="kiosk-product" @click="addProduct(p)">
+                <div class="kp-icon" x-text="p.icon || '🥤'"></div>
+                <div class="kp-name" x-text="p.name"></div>
+                <div class="kp-price num" x-text="formatVND(p.base_price)"></div>
+                <div class="kp-add">
+                  <span x-html="Icons.svg('plus','width=14 height=14')"></span> Thêm
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Submit bar -->
+        <div class="kiosk-submit-bar" x-show="cart.count() > 0">
+          <button class="kiosk-submit" @click="submitOrder()" :disabled="submitting">
+            <span x-show="!submitting">
+              ✓ Đặt <b class="num" x-text="cart.count()"></b> món · <b class="num" x-text="formatVND(cart.total(0))"></b>
+            </span>
+            <span x-show="submitting">Đang gửi...</span>
+          </button>
+        </div>
+
+        <!-- Idle warning -->
+        <div class="idle-warning" x-show="idleWarning">
+          ⏰ Còn <span x-text="idleCountdown"></span>s — chạm màn hình để tiếp tục
+        </div>
+
+        <!-- Cart sheet -->
+        <template x-if="cartOpen">
+          <div>
+            <div class="kiosk-sheet-backdrop" @click="cartOpen=false"></div>
+            <div class="kiosk-sheet">
+              <div class="kiosk-sheet-head">
+                <h3>Giỏ hàng (<span x-text="cart.count()"></span>)</h3>
+                <button class="icon-btn" @click="cartOpen=false" x-html="Icons.svg('close')"></button>
+              </div>
+              <div class="kiosk-sheet-body">
+                <template x-for="(it, idx) in cart.items" :key="idx">
+                  <div class="kiosk-cart-item">
+                    <div style="font-size: 28px;" x-text="it.icon || '🥤'"></div>
+                    <div class="ki-name">
+                      <div x-text="it.product_name"></div>
+                      <div class="text-xs text-subtle" x-text="formatVND(it.unit_price)"></div>
+                    </div>
+                    <div class="ki-qty-ctrl">
+                      <button class="ki-qty-btn" @click="cart.dec(idx)">−</button>
+                      <span class="num" style="min-width: 24px; text-align: center; font-weight: 600;" x-text="it.qty"></span>
+                      <button class="ki-qty-btn" @click="cart.inc(idx)">+</button>
+                    </div>
+                    <div class="ki-line num" x-text="formatVND(it.line_total)"></div>
+                  </div>
+                </template>
+                <div style="padding: 16px 0; border-top: 2px solid var(--border-strong); margin-top: 8px; display: flex; justify-content: space-between; font-size: 20px; font-weight: 700;">
+                  <span>Tổng</span>
+                  <span class="text-primary num" x-text="formatVND(cart.total(0))"></span>
+                </div>
+                <button class="kiosk-submit" @click="submitOrder(); cartOpen=false;" :disabled="submitting" style="margin-top: 8px;">
+                  ✓ Đặt hàng
+                </button>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Success overlay -->
+        <template x-if="successView">
+          <div class="success-overlay">
+            <div class="success-card">
+              <div class="success-check" x-html="Icons.svg('check','width=48 height=48')"></div>
+              <h2 style="font-size: 22px; font-weight: 700;">Đặt món thành công!</h2>
+              <div class="text-sm text-muted" style="margin: 12px 0;">
+                Mã đơn: <b class="font-mono" x-text="lastOrderNo"></b><br/>
+                Tổng: <b class="num" x-text="formatVND(lastOrderTotal)"></b>
+              </div>
+              <div class="text-sm text-muted" style="background: var(--primary-light); padding: 12px; border-radius: var(--r-md); margin-top: 16px;">
+                💚 Vui lòng ra <b>quầy thanh toán</b> để hoàn tất đơn hàng.<br/>
+                Nhân viên đã được thông báo.
+              </div>
+              <div class="text-xs text-subtle" style="margin-top: 16px;">
+                Tự đóng sau <span x-text="successCountdown"></span>s...
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- Admin PIN -->
+        <template x-if="adminPinOpen">
+          <div class="pin-admin">
+            <div class="login-card">
+              <div class="login-brand">
+                <div class="logo-mark logo-mark--lg">ES</div>
+                <div class="login-shop">Truy cập quản trị</div>
+                <div class="login-hint">Nhập PIN chủ quán để thoát kiosk</div>
+              </div>
+              <div class="pin-dots">
+                <template x-for="i in 4" :key="i">
+                  <div class="pin-dot" :class="{filled: adminPin.length >= i}">
+                    <span x-text="adminPin.length >= i ? '•' : ''"></span>
+                  </div>
+                </template>
+              </div>
+              <div class="pin-grid">
+                <template x-for="k in ['1','2','3','4','5','6','7','8','9']" :key="k">
+                  <button @click="adminPin = adminPin.length < 4 ? adminPin + k : adminPin" class="pin-key" x-text="k"></button>
+                </template>
+                <button @click="adminPin=''" class="pin-key action">Xoá</button>
+                <button @click="adminPin = adminPin.length < 4 ? adminPin + '0' : adminPin" class="pin-key">0</button>
+                <button @click="submitAdminPin()" class="pin-key primary">OK</button>
+              </div>
+              <div class="login-error" x-text="adminError"></div>
+              <button class="btn btn-ghost btn-sm btn-block" style="margin-top: 12px;" @click="adminPinOpen=false; adminPin=''; bypassCount=0;">Quay lại đặt món</button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Footer subtle -->
+        <div style="position: fixed; bottom: 6px; right: 12px; font-size: 10px; color: var(--text-tertiary); z-index: 5; font-style: italic;">
+          Powered by EcoSynTech Global
+        </div>
+
+      </div>
+    </template>
+
+  </div>
+
+  <script>
+    function kiosk() {
+      return {
+        booted: false,
+        shop: null,
+        categories: [],
+        products: [],
+        catFilter: 0,
+        cart: window.makeCart(),
+        cartOpen: false,
+        submitting: false,
+        tableNo: '',
+
+        successView: false,
+        lastOrderNo: '',
+        lastOrderTotal: 0,
+        successCountdown: 8,
+
+        // Idle handling
+        idleTimer: null,
+        idleWarnTimer: null,
+        idleCountdownTimer: null,
+        idleWarning: false,
+        idleCountdown: 0,
+        IDLE_TIMEOUT_MS: 5 * 60 * 1000, // 5 min
+        IDLE_WARN_MS: 30 * 1000,        // warn 30s before reset
+
+        // Admin bypass
+        bypassCount: 0,
+        bypassTimer: null,
+        adminPinOpen: false,
+        adminPin: '',
+        adminError: '',
+
+        async boot() {
+          // Read ?table=N
+          const params = new URLSearchParams(location.search);
+          this.tableNo = params.get('table') || '';
+
+          await DB.init();
+          this.shop = Models.getShop();
+          this.categories = Models.listCategories(this.shop.id);
+          this.products = Models.listProducts(this.shop.id);
+          this.booted = true;
+          this.armIdle();
+
+          // Disable browser back / context menu (kiosk lock)
+          history.pushState(null, '', location.href);
+          window.addEventListener('popstate', () => history.pushState(null, '', location.href));
+          // Prevent text selection / context menu
+          document.addEventListener('contextmenu', e => e.preventDefault());
+        },
+
+        formatVND(n) { return Utils.formatVND(n); },
+        filteredProducts() {
+          const arr = this.catFilter === 0 ? this.products : this.products.filter(p => p.category_id === this.catFilter);
+          return arr;
+        },
+        addProduct(p) {
+          this.cart.addProduct(p, []); // kiosk: default variants
+          this.armIdle();
+        },
+
+        async submitOrder() {
+          if (this.submitting || this.cart.items.length === 0) return;
+          this.submitting = true;
+          try {
+            const total = this.cart.total(0);
+            const items = this.cart.items.map(i => ({ ...i }));
+            const orderData = {
+              branch_id: this.shop.id,
+              user_id: null,
+              status: 'pending', // pending = chưa thanh toán; NV confirm ở POS chính
+              subtotal: this.cart.subtotal(),
+              tax: 0, discount: 0, total,
+              payment_method: 'cash', // default — NV sẽ chọn thật ở quầy
+              note: '[KIOSK' + (this.tableNo ? ' · Bàn ' + this.tableNo : '') + ']',
+            };
+            const res = Models.createOrder(orderData, items);
+            this.lastOrderNo = res.order_no;
+            this.lastOrderTotal = total;
+            this.cart.clear();
+            this.successView = true;
+            this.successCountdown = 8;
+            const cdTimer = setInterval(() => {
+              this.successCountdown--;
+              if (this.successCountdown <= 0) {
+                clearInterval(cdTimer);
+                this.successView = false;
+                this.armIdle();
+              }
+            }, 1000);
+          } catch (e) {
+            alert('Lỗi đặt món: ' + e.message);
+            console.error(e);
+          } finally { this.submitting = false; }
+        },
+
+        // ---- Idle ----
+        armIdle() {
+          this.idleWarning = false;
+          clearTimeout(this.idleTimer); clearTimeout(this.idleWarnTimer); clearInterval(this.idleCountdownTimer);
+          // Warn 30s before reset
+          this.idleWarnTimer = setTimeout(() => {
+            this.idleWarning = true;
+            this.idleCountdown = 30;
+            this.idleCountdownTimer = setInterval(() => {
+              this.idleCountdown--;
+              if (this.idleCountdown <= 0) clearInterval(this.idleCountdownTimer);
+            }, 1000);
+          }, this.IDLE_TIMEOUT_MS - this.IDLE_WARN_MS);
+          // Reset
+          this.idleTimer = setTimeout(() => this.resetKiosk(), this.IDLE_TIMEOUT_MS);
+        },
+        resetKiosk() {
+          this.cart.clear();
+          this.catFilter = 0;
+          this.cartOpen = false;
+          this.successView = false;
+          this.idleWarning = false;
+          this.armIdle();
+        },
+
+        // ---- Admin bypass: tap top-right 5 times in 3s ----
+        bypassTap() {
+          this.bypassCount++;
+          clearTimeout(this.bypassTimer);
+          this.bypassTimer = setTimeout(() => { this.bypassCount = 0; }, 3000);
+          if (this.bypassCount >= 5) {
+            this.adminPinOpen = true;
+            this.bypassCount = 0;
+          }
+        },
+        async submitAdminPin() {
+          if (this.adminPin.length !== 4) return;
+          const u = await Models.authPin(this.adminPin, this.shop.id);
+          if (u && u.role === 'owner') {
+            location.href = 'index.html';
+          } else {
+            this.adminError = 'PIN không đúng hoặc không phải chủ quán';
+            this.adminPin = '';
+          }
+        },
+      };
+    }
+
+    // Capture all user interactions to reset idle
+    ['click','touchstart','keydown'].forEach(ev => {
+      document.addEventListener(ev, () => {
+        const root = document.querySelector('[x-data="kiosk()"]');
+        if (root && root._x_dataStack && root._x_dataStack[0]) {
+          const data = root._x_dataStack[0];
+          if (data.booted && !data.successView && data.armIdle) data.armIdle();
+        }
+      }, { passive: true });
+    });
+  </script>
+</body>
+</html>

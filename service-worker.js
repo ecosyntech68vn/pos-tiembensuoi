@@ -2,11 +2,13 @@
 // service-worker.js — Offline-first caching
 // Strategy: cache-first cho assets tĩnh, network-first cho data API (GAS, Telegram)
 // ============================================================================
-const CACHE = 'pos-cafe-v2';
+const CACHE = 'pos-cafe-v3';
 const CORE_ASSETS = [
   './',
   './index.html',
+  './kiosk.html',
   './manifest.json',
+  './assets/styles.css',
   './assets/icons/logo.svg',
   './assets/icons/icon-192.svg',
   './assets/icons/icon-512.svg',
@@ -16,6 +18,7 @@ const CORE_ASSETS = [
   './config/notification.js',
   './modules/core/utils.js',
   './modules/core/event-bus.js',
+  './modules/core/icons.js',
   './modules/core/db.js',
   './modules/core/db-schema.sql',
   './modules/core/models.js',
@@ -37,8 +40,8 @@ const CORE_ASSETS = [
   './modules/sync/telegram-bot.js',
   './seed/sample-menu.json',
   './seed/sample-ingredients.json',
-  // CDN — best-effort cache
-  'https://cdn.tailwindcss.com',
+  // CDN — best-effort
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap',
   'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js',
   'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.wasm',
   'https://cdn.jsdelivr.net/npm/alpinejs@3.13.10/dist/cdn.min.js',
