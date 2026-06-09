@@ -1,118 +1,119 @@
 // ============================================================================
-// pos-enhance.js — POS UI enhancement V2.6 (CEO_THUAN audit)
-// ----------------------------------------------------------------------------
-// 1. Mặc định chọn category đầu (catFilter=1) khi vào POS Bán hàng — tránh
-//    render 114 cards cùng lúc gây lag/render lỗi.
-// 2. Thêm pagination 24/trang khi user chọn "Tất cả" (catFilter=0).
-// 3. Thêm nút "🔄 Làm tươi" nhỏ vào breadcrumb để re-seed FULL data từ CSV.
-// ----------------------------------------------------------------------------
-// CÁCH BẬT: thêm vào index.html cuối <body>:
-//   <script src="assets/pos-enhance.js"></script>
+// pos-enhance.js — POS UI enhancement V2.6.1 (CEO_THUAN audit)
+// Simple, safe — KHÔNG dùng Object.defineProperty + KHÔNG MutationObserver.
+// 1. Auto-select category 1 (Trà hoa quả) khi vào POS Bán hàng
+// 2. Pagination 24/page khi user chọn "Tất cả" (catFilter=0)
+// 3. Nút "🔄 Làm tươi" inject vào header
 // ============================================================================
 (function () {
   'use strict';
   const PAGE_SIZE = 24;
-  const DEFAULT_CAT = 1;  // 1 = Trà hoa quả
 
-  function waitAlpine(cb, retries = 30) {
-    if (window.Alpine && document.querySelector('[x-data="posApp()"]')) return cb();
-    if (retries <= 0) return console.warn('[pos-enhance] Alpine not ready');
-    setTimeout(() => waitAlpine(cb, retries - 1), 200);
+  function tryPatch() {
+    if (!window.Alpine) return false;
+    const root = document.querySelector('[x-data="posApp()"]');
+    if (!root) return false;
+    let d;
+    try { d = window.Alpine.$data(root); } catch (e) { return false; }
+    if (!d || typeof d.filteredProducts !== 'function') return false;
+    if (d.__enhanced) return true;
+
+    // 1. Default category 1
+    if (d.catFilter === 0 || d.catFilter == null) d.catFilter = 1;
+
+    // 2. Add currentPage + wrap filteredProducts với pagination
+    d.currentPage = 1;
+    const orig = d.filteredProducts.bind(d);
+    d.filteredProducts = function () {
+      const arr = orig() || [];
+      if (this.catFilter !== 0) return arr;
+      const p = this.currentPage || 1;
+      return arr.slice((p - 1) * PAGE_SIZE, p * PAGE_SIZE);
+    };
+    d.totalPages = function () {
+      if (this.catFilter !== 0) return 1;
+      const arr = orig() || [];
+      return Math.max(1, Math.ceil(arr.length / PAGE_SIZE));
+    };
+    d.gotoPage = function (n) {
+      const t = this.totalPages();
+      this.currentPage = Math.max(1, Math.min(n, t));
+    };
+    d.__enhanced = true;
+    d.__lastCat = d.catFilter;
+
+    // Watch catFilter change qua interval (an toàn hơn defineProperty)
+    setInterval(() => {
+      if (d.__lastCat !== d.catFilter) {
+        d.currentPage = 1;
+        d.__lastCat = d.catFilter;
+      }
+    }, 300);
+
+    console.log('[pos-enhance V2.6.1] patched: cat=1, pagination ' + PAGE_SIZE + '/page');
+    return true;
   }
 
-  waitAlpine(function () {
+  function tryInjectUI() {
+    if (document.getElementById('__pagi_sentry')) return true;
     const root = document.querySelector('[x-data="posApp()"]');
-    const d = window.Alpine.$data(root);
+    if (!root || !window.Alpine) return false;
+    let d;
+    try { d = window.Alpine.$data(root); } catch (e) { return false; }
+    if (!d || !d.__enhanced) return false;
 
-    // ---- 1. Auto-select category 1 nếu đang ở "Tất cả" (0) ----
-    if (d.catFilter === 0 || d.catFilter == null) {
-      d.catFilter = DEFAULT_CAT;
+    // Tìm khu vực "Bán hàng" — chỉ inject khi user đang xem POS section
+    const banHangHeader = Array.from(document.querySelectorAll('h1, h2, h3'))
+      .find(el => el.offsetParent && /^Bán hàng$/.test(el.textContent.trim()));
+    if (!banHangHeader) return false;
+
+    // Container parent của heading
+    const container = banHangHeader.closest('section, main, .pos-section') || banHangHeader.parentElement?.parentElement || banHangHeader.parentElement;
+    if (!container) return false;
+
+    const wrap = document.createElement('div');
+    wrap.id = '__pagi_sentry';
+    wrap.style.cssText = 'display:flex;gap:8px;align-items:center;padding:12px 0;flex-wrap:wrap;border-top:1px solid #e2e8f0;margin-top:12px;';
+    wrap.innerHTML = '' +
+      '<button id="__pagi_prev" style="padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;">← Trang trước</button>' +
+      '<span id="__pagi_label" style="font-size:14px;color:#475569;min-width:90px;text-align:center;">Trang 1/1</span>' +
+      '<button id="__pagi_next" style="padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:14px;">Trang sau →</button>' +
+      '<span style="flex:1;"></span>' +
+      '<button id="__refresh_btn" title="Re-seed FULL menu Tiệm Bên Suối" style="padding:8px 18px;border:0;border-radius:8px;background:#15803d;color:#fff;cursor:pointer;font-weight:600;font-size:14px;">🔄 Làm tươi menu</button>';
+    container.appendChild(wrap);
+
+    const label = wrap.querySelector('#__pagi_label');
+    const prev = wrap.querySelector('#__pagi_prev');
+    const next = wrap.querySelector('#__pagi_next');
+    const refresh = wrap.querySelector('#__refresh_btn');
+
+    function refreshLabel() {
+      const t = d.totalPages();
+      const c = d.currentPage || 1;
+      label.textContent = (d.catFilter === 0) ? ('Trang ' + c + '/' + t) : 'Chọn nhóm';
+      prev.disabled = d.catFilter !== 0 || c <= 1;
+      next.disabled = d.catFilter !== 0 || c >= t;
+      prev.style.opacity = prev.disabled ? '0.4' : '1';
+      next.style.opacity = next.disabled ? '0.4' : '1';
     }
-
-    // ---- 2. Pagination khi user chọn "Tất cả" ----
-    if (!d.__paginationPatched && typeof d.filteredProducts === 'function') {
-      d.currentPage = 1;
-      const origFiltered = d.filteredProducts.bind(d);
-      d.filteredProducts = function () {
-        const arr = origFiltered() || [];
-        if (this.catFilter !== 0) return arr;       // Filter theo cat → KHÔNG paginate
-        const start = (this.currentPage - 1) * PAGE_SIZE;
-        return arr.slice(start, start + PAGE_SIZE);
-      };
-      d.totalPages = function () {
-        if (this.catFilter !== 0) return 1;
-        const arr = origFiltered() || [];
-        return Math.max(1, Math.ceil(arr.length / PAGE_SIZE));
-      };
-      d.gotoPage = function (n) {
-        const t = this.totalPages();
-        this.currentPage = Math.max(1, Math.min(n, t));
-      };
-      d.__paginationPatched = true;
-    }
-
-    // ---- 3. Reset currentPage về 1 khi đổi category ----
-    let _cat = d.catFilter;
-    Object.defineProperty(d, 'catFilter', {
-      get() { return _cat; },
-      set(v) { _cat = v; if (d.currentPage) d.currentPage = 1; },
-      configurable: true,
+    prev.addEventListener('click', function () { d.gotoPage((d.currentPage || 1) - 1); setTimeout(refreshLabel, 80); });
+    next.addEventListener('click', function () { d.gotoPage((d.currentPage || 1) + 1); setTimeout(refreshLabel, 80); });
+    refresh.addEventListener('click', function () {
+      if (!confirm('Xoá DB hiện tại và nạp lại 114 SKU Tiệm Bên Suối?\n\nDùng khi POS mất sản phẩm hoặc dùng máy mới.')) return;
+      location.href = location.pathname.replace(/[^/]*$/, '') + 'tools/reseed-tiembensuoi.html';
     });
 
-    // ---- 4. Inject Pagination UI sau grid sản phẩm ----
-    function injectPagination() {
-      const sentry = document.getElementById('__pagi_sentry');
-      if (sentry) return;  // đã inject
+    setInterval(refreshLabel, 800);
+    refreshLabel();
+    console.log('[pos-enhance V2.6.1] UI injected');
+    return true;
+  }
 
-      // Tìm "Bán hàng" container — section header có text "Chọn sản phẩm và thanh toán"
-      const banHangHeader = Array.from(document.querySelectorAll('h1, h2, h3, .title, [class*="title"]'))
-        .find(el => /Bán hàng/i.test(el.textContent.trim()) && el.textContent.length < 30);
-      const banHangSection = banHangHeader?.closest('section, [class*="section"], main') || banHangHeader?.parentElement?.parentElement;
-      if (!banHangSection) return;
+  // Patch sau khi Alpine ready, retry mỗi 400ms cho đến khi xong
+  const patchTimer = setInterval(function () {
+    if (tryPatch()) clearInterval(patchTimer);
+  }, 400);
 
-      // Tạo nav pagination + nút Làm tươi
-      const wrap = document.createElement('div');
-      wrap.id = '__pagi_sentry';
-      wrap.style.cssText = 'display:flex;gap:8px;align-items:center;justify-content:center;padding:16px 0;flex-wrap:wrap;';
-      wrap.innerHTML = `
-        <button id="__pagi_prev" class="btn" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;">←</button>
-        <span id="__pagi_label" style="font-size:14px;color:#475569;min-width:80px;text-align:center;">Trang 1/1</span>
-        <button id="__pagi_next" class="btn" style="padding:6px 12px;border:1px solid #ccc;border-radius:6px;background:#fff;cursor:pointer;">→</button>
-        <span style="flex:1;"></span>
-        <button id="__refresh_btn" title="Re-seed FULL menu Tiệm Bên Suối" style="padding:6px 14px;border:1px solid #15803d;border-radius:6px;background:#15803d;color:#fff;cursor:pointer;font-weight:600;">🔄 Làm tươi</button>
-      `;
-      banHangSection.appendChild(wrap);
-
-      const label = wrap.querySelector('#__pagi_label');
-      const prev = wrap.querySelector('#__pagi_prev');
-      const next = wrap.querySelector('#__pagi_next');
-      const refreshBtn = wrap.querySelector('#__refresh_btn');
-
-      function updateLabel() {
-        const t = d.totalPages();
-        const c = d.currentPage || 1;
-        label.textContent = (d.catFilter === 0) ? `Trang ${c}/${t}` : `Đang lọc theo nhóm`;
-        prev.disabled = d.catFilter !== 0 || c <= 1;
-        next.disabled = d.catFilter !== 0 || c >= t;
-        prev.style.opacity = prev.disabled ? '0.4' : '1';
-        next.style.opacity = next.disabled ? '0.4' : '1';
-      }
-      prev.addEventListener('click', () => { d.gotoPage((d.currentPage || 1) - 1); setTimeout(updateLabel, 50); });
-      next.addEventListener('click', () => { d.gotoPage((d.currentPage || 1) + 1); setTimeout(updateLabel, 50); });
-      refreshBtn.addEventListener('click', () => {
-        if (!confirm('Xoá toàn bộ dữ liệu hiện tại và nạp lại 114 SKU Tiệm Bên Suối từ CSV?\n\nDùng khi POS bị mất sản phẩm hoặc dùng máy mới.')) return;
-        location.href = location.pathname.replace(/\/[^/]*$/, '/') + 'tools/reseed-tiembensuoi.html';
-      });
-
-      // Update label periodically + when state changes
-      setInterval(updateLabel, 800);
-      updateLabel();
-    }
-
-    // Inject lần đầu + watch DOM thay đổi (khi user click nav khác rồi quay lại POS)
-    setTimeout(injectPagination, 500);
-    new MutationObserver(() => { setTimeout(injectPagination, 300); }).observe(document.body, { childList: true, subtree: true });
-
-    console.log('[pos-enhance] V2.6 patched: default cat 1 + pagination ' + PAGE_SIZE + '/page + Làm tươi button');
-  });
+  // Inject UI: retry mỗi 800ms — cần đợi user click "POS Bán hàng" thì header mới xuất hiện
+  setInterval(tryInjectUI, 800);
 })();
