@@ -1,6 +1,10 @@
 // ============================================================================
 // models.js — Data access layer over DB
 // ============================================================================
+// PATCH 2026-06-09 CEO_THUAN: deductInventoryForOrderItems now respects
+// variant_filter ("M"/"L"/null) so per-size recipes deduct correct quantities.
+// Was V1 'ignore variant_filter' → over-deducted both M+L sizes simultaneously.
+// ============================================================================
 (function (global) {
   'use strict';
 
@@ -511,15 +515,39 @@
     // ---- Recipe inventory deduction ----
     deductInventoryForOrderItems(branchId, orderId, items, mode) {
       // mode: 'auto' | 'preview' (preview returns list without writing)
+      // PATCH 2026-06-09 CEO_THUAN: respect variant_filter ("M"/"L"/null) so per-size recipes
+      // deduct correct quantities. Was V1 'ignore variant_filter' → over-deducted both sizes.
       const deductions = [];
       items.forEach((it) => {
+        // Parse size code from variants_json snapshot. Accept multiple shapes:
+        //   { size: "M" }                                  ← canonical
+        //   { size: "M (500ml)" }                          ← name string with code prefix
+        //   { size_name: "M (500ml)" } / { variant: "M" } ← legacy
+        let orderSize = null;
+        try {
+          if (it.variants_json) {
+            const v = (typeof it.variants_json === 'string') ? JSON.parse(it.variants_json) : it.variants_json;
+            const raw = (v && (v.size || v.size_name || v.variant || v.variant_name)) || null;
+            if (raw) {
+              // Extract leading letter token (M/L/S) so "M (500ml)" → "M"
+              const m = String(raw).trim().match(/^[A-Za-z]+/);
+              orderSize = m ? m[0].toUpperCase() : String(raw).toUpperCase();
+            }
+          }
+        } catch (e) { /* malformed snapshot — treat as no size filter */ }
         const recipes = DB.exec(`
           SELECT r.ingredient_id, r.qty_per_unit, r.variant_filter, i.name, i.unit
           FROM recipes r JOIN ingredients i ON i.id = r.ingredient_id
           WHERE r.product_id=?
         `, [it.product_id]);
         recipes.forEach((rec) => {
-          // V1: ignore variant_filter (simple). V1.1: parse variant_filter JSON to match.
+          // Filter rules:
+          //   recipe.variant_filter IS NULL → applies to all sizes (e.g. shared base ingredients)
+          //   recipe.variant_filter matches order size → applies
+          //   otherwise → skip
+          if (rec.variant_filter !== null && rec.variant_filter !== undefined && rec.variant_filter !== '') {
+            if (String(rec.variant_filter).toUpperCase() !== orderSize) return; // skip non-matching size
+          }
           const qty = rec.qty_per_unit * (it.qty || 1);
           deductions.push({
             ingredient_id: rec.ingredient_id,
