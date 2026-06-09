@@ -26,9 +26,11 @@
     return ''; // fallback: relative
   })();
   const SCHEMA_URL       = BASE_PATH + 'modules/core/db-schema.sql';
-  const SEED_MENU_URL    = BASE_PATH + 'seed/sample-menu.json';
-  const SEED_INGR_URL    = BASE_PATH + 'seed/sample-ingredients.json';
-  const SEED_RECIPES_URL = BASE_PATH + 'seed/sample-recipes.json';
+  // PATCH 2026-06-09: bypass JSON seed - load directly from 4 CSV (Tiệm Bên Suối FULL data)
+  const SEED_CSV_MENU    = BASE_PATH + 'data/00_MENU.csv';
+  const SEED_CSV_ING     = BASE_PATH + 'data/01_INGREDIENTS.csv';
+  const SEED_CSV_REC     = BASE_PATH + 'data/02_RECIPES_BOM.csv';
+  const SEED_CSV_TOP     = BASE_PATH + 'data/04_TOPPINGS.csv';
 
   let SQL = null;       // sql.js module
   let db = null;        // Database instance
@@ -161,54 +163,153 @@
     db.run("INSERT INTO users (branch_id, name, pin_hash, role, active, created_at) VALUES (?,?,?,?,1,?)",
       [branchId, 'Nhân viên 1', staffPin, 'staff', now]);
 
-    // Load menu seed
+    // PATCH 2026-06-09: Load FULL Tiệm Bên Suối data from 4 CSV files
+    // (Bypass JSON seed — CSV serves as single source of truth from /data/ folder)
     try {
-      const menu = await fetchJSON(SEED_MENU_URL);
-      menu.categories.forEach((c) => {
-        db.run("INSERT INTO categories (id, branch_id, name, sort_order, icon) VALUES (?,?,?,?,?)",
-          [c.id, branchId, c.name, c.sort_order, c.icon || '']);
-      });
-      menu.variant_groups.forEach((g) => {
-        db.run("INSERT INTO variant_groups (id, name, selection_type, required) VALUES (?,?,?,?)",
-          [g.id, g.name, g.selection_type, g.required ? 1 : 0]);
-      });
-      menu.variants.forEach((v) => {
-        db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)",
-          [v.id, v.group_id, v.name, v.price_modifier || 0]);
-      });
-      menu.products.forEach((p, idx) => {
-        db.run("INSERT INTO products (id, branch_id, category_id, name, base_price, icon, active, sort_order, created_at) VALUES (?,?,?,?,?,?,1,?,?)",
-          [p.id, branchId, p.category_id, p.name, p.base_price, p.icon || '', idx, now]);
-        (p.variant_groups || []).forEach((gid) => {
-          db.run("INSERT INTO product_variant_groups (product_id, group_id) VALUES (?,?)", [p.id, gid]);
+      const parseCSV = (text) => {
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        const hdr = lines[0].split(',').map(s => s.trim());
+        return lines.slice(1).map(line => {
+          const cells = line.split(',');
+          const obj = {};
+          hdr.forEach((h, i) => obj[h] = cells[i] !== undefined ? cells[i].trim() : '');
+          return obj;
         });
-      });
-    } catch (e) {
-      console.warn('[db] menu seed skipped:', e.message);
-    }
+      };
+      const [menuText, ingText, recText, topText] = await Promise.all([
+        fetchText(SEED_CSV_MENU), fetchText(SEED_CSV_ING), fetchText(SEED_CSV_REC), fetchText(SEED_CSV_TOP)
+      ]);
+      const menuRows = parseCSV(menuText);
+      const ingRows  = parseCSV(ingText);
+      const recRows  = parseCSV(recText);
+      const topRows  = parseCSV(topText);
 
-    // Load ingredients seed
-    try {
-      const ing = await fetchJSON(SEED_INGR_URL);
-      ing.ingredients.forEach((i) => {
+      // Categories (fixed map)
+      const catMap = {'Trà hoa quả':1,'Trà sữa':2,'Best Seller':3,'Trà kem cheese':4,'Sữa chua':5,'Đồ đá xay':6,'Đồ uống nóng':7,'Cà phê':8,'Đồ ăn vặt':9,'Mỳ cay':10,'Topping đồ uống':11,'Topping mỳ cay':12};
+      const catIcons = {1:'🍋',2:'🧋',3:'⭐',4:'🧀',5:'🥛',6:'🍧',7:'🔥',8:'☕',9:'🍟',10:'🍜',11:'➕',12:'➕'};
+      Object.entries(catMap).forEach(([name, id], idx) => {
+        db.run("INSERT INTO categories (id, branch_id, name, sort_order, icon) VALUES (?,?,?,?,?)",
+          [id, branchId, name, idx + 1, catIcons[id] || '🍴']);
+      });
+
+      // Variant groups + variants
+      db.run("INSERT INTO variant_groups (id, name, selection_type, required) VALUES (?,?,?,?)",
+        [1, 'Size đồ uống', 'single', 1]);
+      db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [1, 1, 'M', 0]);
+      db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [2, 1, 'L', 0]);
+
+      // Products: collapse menu by base_code (remove -M/-L suffix)
+      const productMap = new Map();
+      let pid = 0;
+      const productList = [];
+      menuRows.forEach(row => {
+        if (row.status !== 'ACTIVE') return;
+        const m = row.item_code.match(/^(.+?)-([ML]|S)$/);
+        const baseCode = m ? m[1] : row.item_code;
+        const size = m ? m[2] : null;
+        let p = productMap.get(baseCode);
+        if (!p) {
+          pid++;
+          p = { id: pid, base_code: baseCode, name: row.name_vn, category_sub: row.category_sub, sizes: {}, single_price: null };
+          productMap.set(baseCode, p);
+          productList.push(p);
+        }
+        if (size) p.sizes[size] = { price: parseInt(row.price_sell_vnd, 10) };
+        else p.single_price = parseInt(row.price_sell_vnd, 10);
+      });
+      productList.forEach((p, idx) => {
+        let bp, hv;
+        if (p.sizes.M || p.sizes.L) {
+          bp = p.sizes.M ? p.sizes.M.price : (p.sizes.L ? p.sizes.L.price : 0);
+          hv = !!(p.sizes.M && p.sizes.L);
+        } else { bp = p.single_price || 0; hv = false; }
+        const fullName = '[' + p.base_code + '] ' + p.name;
+        const categoryId = catMap[p.category_sub] || 9;
+        db.run("INSERT INTO products (id, branch_id, category_id, name, base_price, icon, active, sort_order, created_at) VALUES (?,?,?,?,?,?,1,?,?)",
+          [p.id, branchId, categoryId, fullName, bp, '', idx, now]);
+        if (hv) {
+          db.run("INSERT INTO product_variant_groups (product_id, group_id) VALUES (?,?)", [p.id, 1]);
+        }
+      });
+
+      // Topping products
+      topRows.forEach((t, idx) => {
+        if (t.status !== 'ACTIVE') return;
+        pid++;
+        const catId = t.applies_to_category === 'Drinks' ? 11 : 12;
+        db.run("INSERT INTO products (id, branch_id, category_id, name, base_price, icon, active, sort_order, created_at) VALUES (?,?,?,?,?,?,1,?,?)",
+          [pid, branchId, catId, '[' + t.topping_code + '] ' + t.name_vn, parseInt(t.price_sell_vnd, 10), '', productList.length + idx, now]);
+        productMap.set(t.topping_code, { id: pid, base_code: t.topping_code });
+      });
+      const productCodeToId = new Map();
+      productMap.forEach((p, code) => productCodeToId.set(code, p.id));
+
+      // Ingredients (108 from CSV + 11 IG-SF semi-finished)
+      const ingCodeToId = new Map();
+      let iid = 0;
+      ingRows.forEach(row => {
+        if (row.status !== 'ACTIVE') return;
+        iid++;
         db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)",
-          [i.id, branchId, i.name, i.unit, i.stock_current, i.stock_min, i.cost_per_unit, i.supplier || '']);
+          [iid, branchId, '[' + row.ingredient_code + '] ' + row.name_vn,
+           (row.unit || '').replace(/[^\w]/g, '') || 'unit',
+           Math.max(5000, parseInt(row.stock_min, 10) * 5 || 1000),
+           parseInt(row.stock_min, 10) || 100,
+           parseInt(row.unit_cost_vnd, 10) || 0,
+           row.supplier || '']);
+        ingCodeToId.set(row.ingredient_code, iid);
       });
-    } catch (e) {
-      console.warn('[db] ingredient seed skipped:', e.message);
-    }
+      const sfDefs = [['IG-SF-001','Cốt trà nhài','ml',7,5000,1000],['IG-SF-002','Cốt hồng trà','ml',7,5000,1000],['IG-SF-003','Cốt trà ô long','ml',10,2000,500],['IG-SF-004','Đường nước pha sẵn','ml',15,10000,2000],['IG-SF-005','Cà phê pha phin','ml',100,2000,500],['IG-SF-006','Trân châu đường đen ủ','gram',110,3000,500],['IG-SF-007','Cốt trà sen','ml',30,1500,300],['IG-SF-008','Sốt mỳ cay base','ml',80,3000,500],['IG-SF-009','Kem cheese đánh sẵn','ml',180,1500,300],['IG-SF-010','Kem trứng đánh sẵn','ml',200,1000,200],['IG-SF-011','Kem xịt whipping','ml',150,1500,300]];
+      sfDefs.forEach(([code, n, u, c, s, m]) => {
+        iid++;
+        db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)",
+          [iid, branchId, '[' + code + '] ' + n, u, s, m, c, 'Tự pha sáng / mua sẵn']);
+        ingCodeToId.set(code, iid);
+      });
 
-    // Load recipes seed
-    try {
-      const rec = await fetchJSON(SEED_RECIPES_URL);
-      rec.recipes.forEach((r) => {
-        // FIX 2026-06-09: was hardcoded null → now uses r.variant_filter from JSON
-        // Per-size recipes (M/L) now correctly distinguished by variant_filter.
+      // Recipes — apply mapping DR-TC→DR-TH, DR-MN→DR-BS
+      const remap = (code) => {
+        let m = code.match(/^DR-TC-(\d+)(-([ML]))?$/);
+        if (m) return 'DR-TH-' + m[1] + (m[2] || '');
+        m = code.match(/^DR-MN-(\d+)(-([ML]))?$/);
+        if (m) return 'DR-BS-' + m[1] + (m[2] || '');
+        return code;
+      };
+      const seenRec = new Set();
+      recRows.forEach(row => {
+        if (!row.item_code) return;
+        const remapped = remap(row.item_code);
+        const m = remapped.match(/^(.+?)-([ML])$/);
+        const baseCode = m ? m[1] : remapped;
+        const size = m ? m[2] : null;
+        const pId = productCodeToId.get(baseCode);
+        const iId = ingCodeToId.get(row.ingredient_code);
+        if (!pId || !iId) return;
+        const qty = parseFloat(row.qty) || 0;
+        if (qty <= 0) return;
+        const key = pId + '|' + iId + '|' + (size || '');
+        if (seenRec.has(key)) return;
+        seenRec.add(key);
         db.run("INSERT OR IGNORE INTO recipes (product_id, ingredient_id, qty_per_unit, variant_filter) VALUES (?,?,?,?)",
-          [r.product_id, r.ingredient_id, r.qty_per_unit, r.variant_filter || null]);
+          [pId, iId, qty, size]);
       });
+      // Topping recipes
+      topRows.forEach(t => {
+        if (t.status !== 'ACTIVE') return;
+        const pId = productCodeToId.get(t.topping_code);
+        const iId = ingCodeToId.get(t.ingredient_ref);
+        if (!pId || !iId) return;
+        const qty = parseFloat(t.qty_default) || 0;
+        if (qty <= 0) return;
+        const key = pId + '|' + iId + '|';
+        if (seenRec.has(key)) return;
+        seenRec.add(key);
+        db.run("INSERT OR IGNORE INTO recipes (product_id, ingredient_id, qty_per_unit, variant_filter) VALUES (?,?,?,?)",
+          [pId, iId, qty, null]);
+      });
+      console.log('[seed] FULL Tiệm Bên Suối loaded: ' + pid + ' products, ' + iid + ' ingredients, ' + seenRec.size + ' recipes');
     } catch (e) {
-      console.warn('[db] recipe seed skipped:', e.message);
+      console.error('[db] CSV seed failed:', e.message, e.stack);
     }
 
     await persist();
