@@ -144,9 +144,11 @@ async function startReseed() {
       [branchId, 'Tiệm Bên Suối', 'Đông Giang, Tân Thanh, Tuyên Quang', '0566.24.24.24', 'Cafe – Trà sữa – Mỳ cay Bên Suối', 0, 1000, now]);
 
     // PIN owner 1234, staff 5678
+    // IMPORTANT: hash format phải MATCH Utils.hashPin trong modules/core/utils.js:
+    //   SHA-256(`${pin}:${branchId}:ecosyntech-pos`)  ← salt cố định
     async function hashPin(pin, bid) {
       const enc = new TextEncoder();
-      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin + ':' + bid));
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin + ':' + bid + ':ecosyntech-pos'));
       return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
     }
     db.run("INSERT INTO users (branch_id, name, pin_hash, role, active, created_at) VALUES (?,?,?,?,1,?)", [branchId, 'Chủ quán', await hashPin('1234', branchId), 'owner', now]);
