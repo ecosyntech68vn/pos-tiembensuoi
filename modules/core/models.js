@@ -316,6 +316,14 @@
         [tx.qty, tx.ingredient_id]);
       DB.persist();
     },
+    /** 2026-06-10: sửa thông tin nguyên liệu (tên/mã gộp trong name, đơn vị, min, giá, NCC) */
+    updateIngredient(id, data) {
+      DB.run(
+        `UPDATE ingredients SET name=?, unit=?, stock_min=?, cost_per_unit=?, supplier=? WHERE id=?`,
+        [data.name, data.unit || 'unit', data.stock_min || 0, data.cost_per_unit || 0, data.supplier || '', id]
+      );
+      DB.persist();
+    },
     lowStockAlerts(branchId) {
       return DB.exec("SELECT id, name, unit, stock_current, stock_min FROM ingredients WHERE branch_id=? AND active=1 AND stock_current < stock_min", [branchId]);
     },

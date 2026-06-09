@@ -4,7 +4,7 @@
 // ============================================================================
 // 2026-06-10 v9: thêm kiotviet-pull.js (index.html load nhưng không cache → offline chết),
 // 4 file data/*.csv (db.js seed lần đầu cần), branch-preset config.
-const CACHE = 'pos-cafe-v14'; // v14 2026-06-10: QR chuyển khoản trong checkout, nút Đã TT, theme xanh brand, công thức Bếp rõ
+const CACHE = 'pos-cafe-v15'; // v15 2026-06-10: FIX in bill trắng (no-print trên backdrop), sửa tên/mã nguyên liệu trong Kho
 const CORE_ASSETS = [
   './',
   './index.html',

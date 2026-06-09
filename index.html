@@ -904,7 +904,10 @@
                         <td class="num" x-text="i.stock_min"></td>
                         <td class="num" x-text="formatVND(i.cost_per_unit)"></td>
                         <td x-text="i.supplier"></td>
-                        <td><button class="btn btn-ghost btn-sm" @click="openInventoryTx(i)">+ Nhập/Xuất</button></td>
+                        <td style="white-space: nowrap;">
+                          <button class="btn btn-ghost btn-sm" @click="openIngEditor(i)" title="Sửa tên / mã / giá">✎ Sửa</button>
+                          <button class="btn btn-ghost btn-sm" @click="openInventoryTx(i)">+ Nhập/Xuất</button>
+                        </td>
                       </tr>
                     </template>
                   </tbody>
@@ -1424,6 +1427,47 @@
           </div>
         </div>
 
+        <!-- ============ INGREDIENT EDITOR (2026-06-10) ============ -->
+        <div x-show="ingEditor.open" class="modal-backdrop" @click.self="ingEditor.open=false">
+          <div class="modal" style="max-width: 440px;">
+            <div class="modal-head"><h3>Sửa nguyên liệu</h3></div>
+            <div class="modal-body">
+              <div class="grid" style="grid-template-columns: 1fr 2fr; gap: 8px;">
+                <div class="field">
+                  <div class="label">Mã (vd IG-FD-001)</div>
+                  <input class="input font-mono" x-model="ingEditor.code" placeholder="IG-..." />
+                </div>
+                <div class="field">
+                  <div class="label">Tên nguyên liệu</div>
+                  <input class="input" x-model="ingEditor.name" placeholder="VD: Chanh tươi" />
+                </div>
+              </div>
+              <div class="grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+                <div class="field">
+                  <div class="label">Đơn vị</div>
+                  <input class="input" x-model="ingEditor.unit" placeholder="gram/ml/cái" />
+                </div>
+                <div class="field">
+                  <div class="label">Tồn tối thiểu</div>
+                  <input type="number" class="input num" x-model.number="ingEditor.stock_min" />
+                </div>
+                <div class="field">
+                  <div class="label">Đơn giá (₫)</div>
+                  <input type="number" class="input num" x-model.number="ingEditor.cost_per_unit" />
+                </div>
+              </div>
+              <div class="field">
+                <div class="label">Nhà cung cấp</div>
+                <input class="input" x-model="ingEditor.supplier" />
+              </div>
+            </div>
+            <div class="modal-foot">
+              <button class="btn btn-ghost" @click="ingEditor.open=false">Huỷ</button>
+              <button class="btn btn-primary" @click="saveIngEditor()" :disabled="!ingEditor.name">Lưu</button>
+            </div>
+          </div>
+        </div>
+
         <!-- ============ ABOUT MODAL ============ -->
         <div x-show="aboutOpen" class="modal-backdrop" @click.self="aboutOpen=false">
           <div class="modal">
@@ -1740,7 +1784,9 @@
 
     <!-- ============ RECEIPT MODAL (print-friendly) ============ -->
     <template x-if="user && receipt.open">
-      <div class="modal-backdrop no-print" @click.self="receipt.open=false">
+      <!-- 2026-06-10 FIX IN BILL TRẮNG: backdrop từng có class no-print → display:none khi in
+           → cả cây con (gồm .receipt) biến mất. Print CSS đã xử lý backdrop riêng. -->
+      <div class="modal-backdrop" @click.self="receipt.open=false">
         <div class="modal" style="max-width: 360px; padding: 0;">
           <div class="receipt" :data-width="receipt.width === 58 ? '58' : receipt.width === 0 ? 'a4' : '80'" style="font-family: 'JetBrains Mono', ui-monospace, monospace; padding: 16px; font-size: 13px; line-height: 1.4; color: #000; background: #fff;">
             <!-- Header -->
@@ -1987,6 +2033,9 @@
         // ---- Kitchen (V2.3) ----
         kitchen: { pending: [], preparing: [], ready: [] },
         showRecipes: localStorage.getItem('eco_kitchen_recipes') === '1',
+
+        // ---- Ingredient editor (2026-06-10) ----
+        ingEditor: { open: false, id: null, code: '', name: '', unit: '', stock_min: 0, cost_per_unit: 0, supplier: '' },
         kitchenAssignTarget: null,
         kitchenLastPoll: 0,
         kitchenPollTimer: null,
@@ -2611,6 +2660,30 @@
         },
         recipeLines(it) {
           try { return Models.recipeLinesForOrderItem(it); } catch (e) { return []; }
+        },
+
+        // ---- Ingredient editor (2026-06-10) ----
+        openIngEditor(i) {
+          const m = String(i.name || '').match(/^\[([^\]]+)\]\s*(.*)$/);
+          this.ingEditor = {
+            open: true, id: i.id,
+            code: m ? m[1] : '',
+            name: m ? m[2] : (i.name || ''),
+            unit: i.unit || '', stock_min: i.stock_min || 0,
+            cost_per_unit: i.cost_per_unit || 0, supplier: i.supplier || '',
+          };
+        },
+        saveIngEditor() {
+          const e = this.ingEditor;
+          if (!e.id || !e.name) return;
+          const fullName = e.code ? '[' + e.code.trim() + '] ' + e.name.trim() : e.name.trim();
+          Models.updateIngredient(e.id, {
+            name: fullName, unit: e.unit, stock_min: e.stock_min,
+            cost_per_unit: e.cost_per_unit, supplier: e.supplier,
+          });
+          this.ingEditor.open = false;
+          this.loadCatalog();
+          this.showToast('✓ Đã lưu ' + fullName);
         },
         moveKitchen(orderId, status) {
           Models.updateKitchenStatus(orderId, status, this.user?.id);
