@@ -2,6 +2,10 @@
 // db.js — SQLite (sql.js WASM) lifecycle + IndexedDB persistence
 // Offline-first: DB lives in browser. Persists to IndexedDB on every commit.
 // ============================================================================
+// PATCH 2026-06-09: Fix BUG #1 — variant_filter no longer hardcoded NULL.
+//                   Now reads r.variant_filter from seed JSON so per-size
+//                   recipes (M/L) work correctly. — CEO_THUAN audit fix.
+// ============================================================================
 (function (global) {
   'use strict';
 
@@ -198,8 +202,10 @@
     try {
       const rec = await fetchJSON(SEED_RECIPES_URL);
       rec.recipes.forEach((r) => {
+        // FIX 2026-06-09: was hardcoded null → now uses r.variant_filter from JSON
+        // Per-size recipes (M/L) now correctly distinguished by variant_filter.
         db.run("INSERT OR IGNORE INTO recipes (product_id, ingredient_id, qty_per_unit, variant_filter) VALUES (?,?,?,?)",
-          [r.product_id, r.ingredient_id, r.qty_per_unit, null]);
+          [r.product_id, r.ingredient_id, r.qty_per_unit, r.variant_filter || null]);
       });
     } catch (e) {
       console.warn('[db] recipe seed skipped:', e.message);
