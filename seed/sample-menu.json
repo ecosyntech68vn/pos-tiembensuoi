@@ -1,72 +1,49 @@
 {
+  "_meta": {
+    "source": "Tiệm Bên Suối MENU_BOM_v0.1 — SAFE SUBSET 20 SKU",
+    "generated_by": "POS Cafe E2E audit task (CEO_THUAN)",
+    "generated_at": "2026-06-09",
+    "subset_strategy": "Đại diện 8 nhóm chính + 2 topping để cover 12 core test case",
+    "mapping_note": "DR-MN trong recipe = DR-BS trong menu (cùng item, khác prefix). DR-TC trong recipe = DR-TH trong menu (1-1 theo số). IG-SF-* giữ nguyên như bán thành phẩm."
+  },
   "categories": [
-    {"id": 1, "name": "Cà phê", "sort_order": 1, "icon": "☕"},
-    {"id": 2, "name": "Trà sữa", "sort_order": 2, "icon": "🧋"},
-    {"id": 3, "name": "Trà trái cây", "sort_order": 3, "icon": "🍹"},
-    {"id": 4, "name": "Sinh tố / Nước ép", "sort_order": 4, "icon": "🥤"},
-    {"id": 5, "name": "Đá xay / Khác", "sort_order": 5, "icon": "🍧"},
-    {"id": 6, "name": "Topping", "sort_order": 6, "icon": "🫧"}
+    { "id": "cat_th", "name": "Trà hoa quả",   "sort_order": 1, "icon": "🍋" },
+    { "id": "cat_ts", "name": "Trà sữa",        "sort_order": 2, "icon": "🧋" },
+    { "id": "cat_bs", "name": "Best Seller",    "sort_order": 3, "icon": "⭐" },
+    { "id": "cat_cf", "name": "Cà phê",         "sort_order": 4, "icon": "☕" },
+    { "id": "cat_sc", "name": "Sữa chua",       "sort_order": 5, "icon": "🥛" },
+    { "id": "cat_dx", "name": "Đồ đá xay",      "sort_order": 6, "icon": "🍧" },
+    { "id": "cat_av", "name": "Đồ ăn vặt",      "sort_order": 7, "icon": "🍟" },
+    { "id": "cat_mc", "name": "Mỳ cay",         "sort_order": 8, "icon": "🍜" },
+    { "id": "cat_tp", "name": "Topping",        "sort_order": 9, "icon": "➕" }
   ],
   "variant_groups": [
-    {"id": 1, "name": "Size", "selection_type": "single", "required": 1},
-    {"id": 2, "name": "Đường", "selection_type": "single", "required": 0},
-    {"id": 3, "name": "Đá", "selection_type": "single", "required": 0},
-    {"id": 4, "name": "Topping", "selection_type": "multi", "required": 0}
+    { "id": "vg_size_drink", "name": "Size đồ uống", "selection_type": "single", "required": true }
   ],
   "variants": [
-    {"id": 1, "group_id": 1, "name": "S", "price_modifier": 0},
-    {"id": 2, "group_id": 1, "name": "M", "price_modifier": 5000},
-    {"id": 3, "group_id": 1, "name": "L", "price_modifier": 10000},
-    {"id": 4, "group_id": 2, "name": "0% đường", "price_modifier": 0},
-    {"id": 5, "group_id": 2, "name": "30% đường", "price_modifier": 0},
-    {"id": 6, "group_id": 2, "name": "50% đường", "price_modifier": 0},
-    {"id": 7, "group_id": 2, "name": "70% đường", "price_modifier": 0},
-    {"id": 8, "group_id": 2, "name": "100% đường", "price_modifier": 0},
-    {"id": 9, "group_id": 3, "name": "Không đá", "price_modifier": 0},
-    {"id": 10, "group_id": 3, "name": "Ít đá", "price_modifier": 0},
-    {"id": 11, "group_id": 3, "name": "Đá vừa", "price_modifier": 0},
-    {"id": 12, "group_id": 3, "name": "Đá nhiều", "price_modifier": 0},
-    {"id": 13, "group_id": 4, "name": "Trân châu đen", "price_modifier": 5000},
-    {"id": 14, "group_id": 4, "name": "Trân châu trắng", "price_modifier": 5000},
-    {"id": 15, "group_id": 4, "name": "Thạch dừa", "price_modifier": 5000},
-    {"id": 16, "group_id": 4, "name": "Kem cheese", "price_modifier": 10000},
-    {"id": 17, "group_id": 4, "name": "Pudding", "price_modifier": 8000},
-    {"id": 18, "group_id": 4, "name": "Phô mai dẻo", "price_modifier": 8000}
+    { "id": "size_m", "group_id": "vg_size_drink", "name": "M (500ml)", "price_modifier": 0 },
+    { "id": "size_l", "group_id": "vg_size_drink", "name": "L (700ml)", "price_modifier": 5000 }
   ],
   "products": [
-    {"id": 1,  "category_id": 1, "name": "Cà phê đen", "base_price": 20000, "icon": "☕", "variant_groups": [1,3]},
-    {"id": 2,  "category_id": 1, "name": "Cà phê sữa", "base_price": 25000, "icon": "☕", "variant_groups": [1,3]},
-    {"id": 3,  "category_id": 1, "name": "Bạc xỉu", "base_price": 28000, "icon": "☕", "variant_groups": [1,3]},
-    {"id": 4,  "category_id": 1, "name": "Cà phê muối", "base_price": 30000, "icon": "🧂", "variant_groups": [1,3]},
-    {"id": 5,  "category_id": 1, "name": "Cà phê dừa", "base_price": 35000, "icon": "🥥", "variant_groups": [1,3]},
-    {"id": 6,  "category_id": 1, "name": "Cà phê trứng", "base_price": 35000, "icon": "🥚", "variant_groups": [1,3]},
-    {"id": 7,  "category_id": 1, "name": "Cappuccino", "base_price": 40000, "icon": "☕", "variant_groups": [1,3]},
-    {"id": 8,  "category_id": 1, "name": "Latte", "base_price": 42000, "icon": "☕", "variant_groups": [1,3]},
-
-    {"id": 9,  "category_id": 2, "name": "Trà sữa truyền thống", "base_price": 30000, "icon": "🧋", "variant_groups": [1,2,3,4]},
-    {"id": 10, "category_id": 2, "name": "Trà sữa trân châu đường đen", "base_price": 38000, "icon": "🧋", "variant_groups": [1,2,3,4]},
-    {"id": 11, "category_id": 2, "name": "Trà sữa khoai môn", "base_price": 35000, "icon": "💜", "variant_groups": [1,2,3,4]},
-    {"id": 12, "category_id": 2, "name": "Trà sữa matcha", "base_price": 40000, "icon": "🍵", "variant_groups": [1,2,3,4]},
-    {"id": 13, "category_id": 2, "name": "Trà sữa đào", "base_price": 38000, "icon": "🍑", "variant_groups": [1,2,3,4]},
-    {"id": 14, "category_id": 2, "name": "Trà sữa socola", "base_price": 38000, "icon": "🍫", "variant_groups": [1,2,3,4]},
-    {"id": 15, "category_id": 2, "name": "Hồng trà sữa", "base_price": 32000, "icon": "🧋", "variant_groups": [1,2,3,4]},
-
-    {"id": 16, "category_id": 3, "name": "Trà chanh", "base_price": 20000, "icon": "🍋", "variant_groups": [1,2,3]},
-    {"id": 17, "category_id": 3, "name": "Trà đào cam sả", "base_price": 35000, "icon": "🍑", "variant_groups": [1,2,3]},
-    {"id": 18, "category_id": 3, "name": "Trà vải", "base_price": 32000, "icon": "🍒", "variant_groups": [1,2,3]},
-    {"id": 19, "category_id": 3, "name": "Hồng trà chanh dây", "base_price": 32000, "icon": "🍋", "variant_groups": [1,2,3]},
-    {"id": 20, "category_id": 3, "name": "Lục trà bạc hà", "base_price": 28000, "icon": "🌿", "variant_groups": [1,2,3]},
-
-    {"id": 21, "category_id": 4, "name": "Sinh tố bơ", "base_price": 38000, "icon": "🥑", "variant_groups": [1,3]},
-    {"id": 22, "category_id": 4, "name": "Sinh tố xoài", "base_price": 35000, "icon": "🥭", "variant_groups": [1,3]},
-    {"id": 23, "category_id": 4, "name": "Sinh tố dâu", "base_price": 38000, "icon": "🍓", "variant_groups": [1,3]},
-    {"id": 24, "category_id": 4, "name": "Nước ép cam", "base_price": 30000, "icon": "🍊", "variant_groups": [1,3]},
-    {"id": 25, "category_id": 4, "name": "Nước ép dứa", "base_price": 28000, "icon": "🍍", "variant_groups": [1,3]},
-    {"id": 26, "category_id": 4, "name": "Nước ép cà rốt", "base_price": 28000, "icon": "🥕", "variant_groups": [1,3]},
-
-    {"id": 27, "category_id": 5, "name": "Đá xay matcha", "base_price": 45000, "icon": "🍵", "variant_groups": [1]},
-    {"id": 28, "category_id": 5, "name": "Đá xay socola", "base_price": 45000, "icon": "🍫", "variant_groups": [1]},
-    {"id": 29, "category_id": 5, "name": "Sữa chua trân châu", "base_price": 35000, "icon": "🥛", "variant_groups": [1,4]},
-    {"id": 30, "category_id": 5, "name": "Nước suối", "base_price": 10000, "icon": "💧", "variant_groups": []}
+    { "id": "DR-TH-001", "category_id": "cat_th", "name": "Trà chanh",                         "base_price": 15000, "icon": "🍋", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-TH-003", "category_id": "cat_th", "name": "Trà chanh leo",                     "base_price": 25000, "icon": "🍋", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-TH-014", "category_id": "cat_th", "name": "Trà cam mật ong",                   "base_price": 25000, "icon": "🍊", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-TS-001", "category_id": "cat_ts", "name": "Trà sữa khoai môn",                 "base_price": 27000, "icon": "🧋", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-TS-002", "category_id": "cat_ts", "name": "Trà sữa nguyên vị",                 "base_price": 27000, "icon": "🧋", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-TS-014", "category_id": "cat_ts", "name": "Hồng trà sữa",                      "base_price": 30000, "icon": "🧋", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-BS-001", "category_id": "cat_bs", "name": "Sữa tươi trân châu đường đen",      "base_price": 30000, "icon": "⭐", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-BS-002", "category_id": "cat_bs", "name": "Trà sữa trân châu đường đen",       "base_price": 30000, "icon": "⭐", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-CF-001", "category_id": "cat_cf", "name": "Cafe đen / nâu",                    "base_price": 25000, "icon": "☕", "variant_groups": [] },
+    { "id": "DR-CF-004", "category_id": "cat_cf", "name": "Bạc xỉu",                           "base_price": 25000, "icon": "☕", "variant_groups": [] },
+    { "id": "DR-SC-001", "category_id": "cat_sc", "name": "Sữa chua việt quất",                "base_price": 25000, "icon": "🥛", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-DX-001", "category_id": "cat_dx", "name": "Matcha đá xay",                     "base_price": 30000, "icon": "🍧", "variant_groups": ["vg_size_drink"] },
+    { "id": "DR-DX-004", "category_id": "cat_dx", "name": "Socola đá xay",                     "base_price": 30000, "icon": "🍧", "variant_groups": ["vg_size_drink"] },
+    { "id": "FD-AV-005", "category_id": "cat_av", "name": "Khoai tây chiên",                   "base_price": 25000, "icon": "🍟", "variant_groups": [] },
+    { "id": "FD-AV-001", "category_id": "cat_av", "name": "Đùi/cánh gà chiên",                 "base_price": 30000, "icon": "🍗", "variant_groups": [] },
+    { "id": "FD-AV-002", "category_id": "cat_av", "name": "Xúc xích chiên",                    "base_price": 10000, "icon": "🌭", "variant_groups": [] },
+    { "id": "FD-MC-003", "category_id": "cat_mc", "name": "Mỳ cay hải sản",                    "base_price": 50000, "icon": "🍜", "variant_groups": [] },
+    { "id": "FD-MC-001", "category_id": "cat_mc", "name": "Mỳ cay xúc xích",                   "base_price": 35000, "icon": "🍜", "variant_groups": [] },
+    { "id": "TP-DR-001", "category_id": "cat_tp", "name": "Trân châu ngọc trai",               "base_price": 6000,  "icon": "⚪", "variant_groups": [] },
+    { "id": "TP-DR-005", "category_id": "cat_tp", "name": "Kem cheese",                        "base_price": 6000,  "icon": "🧀", "variant_groups": [] }
   ]
 }
