@@ -1,74 +1,138 @@
 // ============================================================================
-// cart.js — Cart factory.
-// IMPORTANT: Returns a plain object with state + methods using `this`.
-// posApp() spreads this into Alpine reactive data so all mutations through
-// `this.cart.<method>()` go through the Alpine proxy and are tracked.
+// cart.js — POS Cart state (Alpine.js component factory)
+// ============================================================================
+// 2026-06-09 V2.6 PATCH (CEO_THUAN audit):
+//   FIX BUG variants bị nuốt — addProduct(p, variants) signature 2 args:
+//     1. Lưu variants array nguyên vẹn (vd [{group_id:1, id:1, name:'M (500ml)', price_modifier:0}])
+//     2. Tính unit_price = base + tổng price_modifier của tất cả variants
+//     3. Merge qty CHỈ KHI cùng product_id + cùng variants → M và L tách thành 2 line riêng
+//     4. Hiển thị tên kèm size: "Trà chanh · M (500ml)"
+//   Đây là điều kiện bắt buộc để deductInventoryForOrderItems trừ kho ĐÚNG size.
+//   Backwards compatible: index.html gọi addProduct(p, []) cho sản phẩm không variant.
 // ============================================================================
 (function (global) {
   'use strict';
 
-  function lineKey(item) {
-    return `${item.product_id}::${(item.variants || []).map((v) => v.id).sort().join(',')}`;
+  /**
+   * Stable key để compare variants 2 line cart — chỉ dựa trên ID variant đã chọn.
+   * Vd [{id:1, name:'M'}] khác với [{id:2, name:'L'}] → 2 line riêng.
+   */
+  function variantsKey(variants) {
+    if (!variants || !Array.isArray(variants) || variants.length === 0) return '';
+    return variants
+      .map((v) => (v && (v.id != null ? String(v.id) : (v.name || ''))))
+      .filter(Boolean)
+      .sort()
+      .join('|');
   }
 
-  function makeCart() {
+  /**
+   * Tính tổng price_modifier từ tất cả variants được chọn.
+   * Vd size L có +5000, topping +3000 → modifier tổng = 8000.
+   */
+  function sumPriceModifier(variants) {
+    if (!variants || !Array.isArray(variants)) return 0;
+    return variants.reduce((s, v) => s + (v && typeof v.price_modifier === 'number' ? v.price_modifier : 0), 0);
+  }
+
+  /**
+   * Tên hiển thị: "Trà chanh · M (500ml)" hoặc "Trà chanh · M (500ml) · Trân châu".
+   */
+  function variantDisplayName(p, variants) {
+    if (!variants || !Array.isArray(variants) || variants.length === 0) return p.name;
+    const tail = variants.map((v) => (v && v.name) || '').filter(Boolean).join(' · ');
+    return tail ? p.name + '  ·  ' + tail : p.name;
+  }
+
+  global.posCart = function () {
     return {
       items: [],
       note: '',
       discount: 0,
 
-      addProduct(product, selectedVariants) {
-        const variants = selectedVariants || [];
-        const unitMod = variants.reduce((s, v) => s + (Number(v.price_modifier) || 0), 0);
-        const unitPrice = (Number(product.base_price) || 0) + unitMod;
-        const newItem = {
-          product_id: product.id,
-          product_name: product.name,
-          icon: product.icon || '',
-          variants,
-          unit_price: unitPrice,
-          qty: 1,
-          line_total: unitPrice,
-        };
-        const key = lineKey(newItem);
-        const exist = this.items.find((i) => lineKey(i) === key);
-        if (exist) {
-          exist.qty += 1;
-          exist.line_total = exist.qty * exist.unit_price;
-        } else {
-          this.items.push(newItem);
+      /**
+       * Thêm sản phẩm vào giỏ.
+       * @param {Object} p - { id, name, base_price, icon }
+       * @param {Array} variants - mảng các variant đã chọn, vd [{group_id, id, name, price_modifier}]
+       *                            hoặc [] cho sản phẩm không có biến thể.
+       */
+      addProduct(p, variants) {
+        variants = Array.isArray(variants) ? variants : [];
+        const key       = variantsKey(variants);
+        const priceMod  = sumPriceModifier(variants);
+        const unitPrice = (p.base_price || p.unit_price || 0) + priceMod;
+        const dispName  = variantDisplayName(p, variants);
+
+        // Merge qty CHỈ KHI cùng product_id + cùng variants key (M không merge với L)
+        const existing = this.items.find((it) => it.product_id === p.id && variantsKey(it.variants) === key);
+        if (existing) {
+          existing.qty += 1;
+          existing.line_total = existing.unit_price * existing.qty;
+          return;
         }
+
+        // Line mới — lưu variants nguyên array để pass vào order_items.variants_json
+        this.items.push({
+          product_id:   p.id,
+          product_name: dispName,
+          icon:         p.icon || '',
+          unit_price:   unitPrice,
+          qty:          1,
+          line_total:   unitPrice,
+          variants:     variants.slice(),  // copy để tránh mutate
+        });
       },
 
-      setQty(index, qty) {
-        qty = Math.max(0, Math.floor(Number(qty) || 0));
-        if (qty === 0) {
-          this.items.splice(index, 1);
-        } else {
-          this.items[index].qty = qty;
-          this.items[index].line_total = qty * this.items[index].unit_price;
-        }
+      setQty(idx, qty) {
+        const n = Math.max(1, parseInt(qty, 10) || 1);
+        const it = this.items[idx];
+        if (!it) return;
+        it.qty = n;
+        it.line_total = it.unit_price * n;
       },
 
-      inc(index) { this.setQty(index, this.items[index].qty + 1); },
-      dec(index) { this.setQty(index, this.items[index].qty - 1); },
-      remove(index) { this.items.splice(index, 1); },
-      clear() { this.items.splice(0, this.items.length); this.note = ''; this.discount = 0; },
+      inc(idx) {
+        const it = this.items[idx];
+        if (!it) return;
+        it.qty += 1;
+        it.line_total = it.unit_price * it.qty;
+      },
 
-      subtotal() {
-        return this.items.reduce((s, i) => s + i.line_total, 0);
+      dec(idx) {
+        const it = this.items[idx];
+        if (!it) return;
+        if (it.qty <= 1) { this.remove(idx); return; }
+        it.qty -= 1;
+        it.line_total = it.unit_price * it.qty;
       },
-      tax(taxRate) {
-        return Math.round(this.subtotal() * (Number(taxRate) || 0) / 100);
+
+      remove(idx) {
+        this.items.splice(idx, 1);
       },
-      total(taxRate) {
-        return Math.max(0, this.subtotal() + this.tax(taxRate) - (Number(this.discount) || 0));
+
+      clear() {
+        this.items = [];
+        this.note = '';
+        this.discount = 0;
       },
-      count() {
-        return this.items.reduce((s, i) => s + i.qty, 0);
+
+      // ---- Computed ----
+      get subtotal() {
+        return this.items.reduce((s, it) => s + (it.line_total || 0), 0);
+      },
+      get tax() {
+        const rate = (global.__SHOP_TAX_RATE__ || 0);
+        return Math.round(this.subtotal * rate);
+      },
+      get total() {
+        return Math.max(0, this.subtotal + this.tax - (parseInt(this.discount, 10) || 0));
+      },
+      get count() {
+        return this.items.reduce((n, it) => n + (it.qty || 0), 0);
       },
     };
-  }
+  };
 
-  global.makeCart = makeCart;
+  // Backward compat: 1 số nơi gọi window.Cart
+  global.Cart = global.posCart;
 })(window);
