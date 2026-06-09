@@ -845,28 +845,54 @@ html.big-text body { font-size: 17.5px; }
 /* ============================================================================
    Category color palette + product card polish (V2.4.4)
    ============================================================================ */
+/* 2026-06-10: palette 12 màu khớp category seed Tiệm Bên Suối (trước chỉ có 6 → nửa menu xám) */
 :root {
-  --cat-1: #6f4e37;  /* Cà phê - nâu */
-  --cat-2: #c084fc;  /* Trà sữa - tím nhạt */
-  --cat-3: #84cc16;  /* Trà trái cây - xanh trà */
-  --cat-4: #fb923c;  /* Sinh tố/Nước ép - cam */
-  --cat-5: #38bdf8;  /* Đá xay/Khác - xanh lạnh */
-  --cat-6: #d4af37;  /* Topping - gold */
+  --cat-1:  #f59e0b;  /* Trà hoa quả - hổ phách */
+  --cat-2:  #a855f7;  /* Trà sữa - tím */
+  --cat-3:  #ef4444;  /* Best Seller - đỏ */
+  --cat-4:  #facc15;  /* Trà kem cheese - vàng cheese */
+  --cat-5:  #ec4899;  /* Sữa chua - hồng */
+  --cat-6:  #38bdf8;  /* Đồ đá xay - xanh băng */
+  --cat-7:  #fb923c;  /* Đồ uống nóng - cam */
+  --cat-8:  #92613a;  /* Cà phê - nâu */
+  --cat-9:  #84cc16;  /* Đồ ăn vặt - lime */
+  --cat-10: #dc2626;  /* Mỳ cay - đỏ đậm */
+  --cat-11: #2dd4bf;  /* Topping đồ uống - teal */
+  --cat-12: #94a3b8;  /* Topping mỳ cay - xám */
   --cat-default: #94a3b8;
 }
 .product-card {
   position: relative;
   border-top: 3px solid var(--card-color, var(--cat-default)) !important;
+  /* Nền tint nhẹ theo màu category — nhìn là biết nhóm món */
+  background: linear-gradient(180deg,
+    color-mix(in srgb, var(--card-color, var(--cat-default)) 9%, var(--bg-card)) 0%,
+    var(--bg-card) 62%) !important;
   overflow: hidden;
+}
+.product-card:hover {
+  border-color: var(--card-color, var(--primary));
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--card-color, var(--cat-default)) 28%, transparent);
 }
 .product-card .product-icon {
   display: inline-flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--card-color, var(--cat-default)) 12%, transparent);
+  background: color-mix(in srgb, var(--card-color, var(--cat-default)) 16%, transparent);
   border-radius: var(--r-full);
-  width: 56px; height: 56px; margin: 4px auto 0;
+  width: 52px; height: 52px; margin: 2px auto 0;
   transition: transform var(--t-fast) var(--ease-out);
 }
+.product-card .product-name {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; text-align: center; font-weight: 600;
+}
+.product-card .product-price { text-align: center; }
 .product-card:hover .product-icon { transform: scale(1.08) rotate(-3deg); }
+
+/* Tab category cũng ăn màu riêng khi active (set --card-color inline từ template) */
+.cat-tab.active {
+  background: var(--card-color, var(--primary));
+  border-color: var(--card-color, var(--primary));
+}
 
 /* Sidebar cart badge */
 .nav-item .nav-badge {

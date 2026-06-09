@@ -93,8 +93,11 @@
       padding-bottom: 200px;
     }
     .kiosk-product {
-      background: var(--bg-card);
+      background: linear-gradient(180deg,
+        color-mix(in srgb, var(--card-color, #94a3b8) 10%, var(--bg-card)) 0%,
+        var(--bg-card) 60%);
       border: 1px solid var(--border);
+      border-top: 4px solid var(--card-color, #94a3b8);
       border-radius: var(--r-lg);
       padding: 20px 16px;
       text-align: center;
@@ -280,9 +283,9 @@
 
           <div class="kiosk-grid">
             <template x-for="p in filteredProducts()" :key="p.id">
-              <div class="kiosk-product" @click="addProduct(p)">
-                <div class="kp-icon" x-text="p.icon || '🥤'"></div>
-                <div class="kp-name" x-text="p.name"></div>
+              <div class="kiosk-product" @click="addProduct(p)" :style="`--card-color: var(--cat-${p.category_id}, #94a3b8);`">
+                <div class="kp-icon" x-text="pIcon(p)"></div>
+                <div class="kp-name" x-text="pName(p)"></div>
                 <div class="kp-price num" x-text="formatVND(p.base_price)"></div>
                 <div class="kp-add">
                   <span x-html="Icons.svg('plus','width=14 height=14')"></span> Thêm
@@ -515,6 +518,12 @@
         },
 
         formatVND(n) { return Utils.formatVND(n); },
+        pIcon(p) {
+          if (p && p.icon) return p.icon;
+          const cat = this.categories.find(c => c.id === p.category_id);
+          return Utils.smartIcon(p && p.name, cat ? cat.icon : '🥤');
+        },
+        pName(p) { return Utils.displayName(p && p.name); },
         filteredProducts() {
           const arr = this.catFilter === 0 ? this.products : this.products.filter(p => p.category_id === this.catFilter);
           return arr;

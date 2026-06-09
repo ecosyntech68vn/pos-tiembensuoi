@@ -89,6 +89,41 @@
         t = setTimeout(() => fn.apply(this, args), ms);
       };
     },
+
+    // ------------------------------------------------------------------
+    // 2026-06-10 UI POLISH (CEO_THUAN): POS hiển thị 114 món seed không icon,
+    // tên dính mã [DR-TH-001]. 2 helper dưới dùng chung index.html + kiosk.html.
+    // ------------------------------------------------------------------
+
+    /** Tên hiển thị POS: bỏ prefix mã hàng "[DR-TH-001] Trà chanh" → "Trà chanh" */
+    displayName(name) {
+      return String(name || '').replace(/^\[[^\]]+\]\s*/, '');
+    },
+
+    /** Icon thông minh suy từ tên món (ưu tiên cụm dài trước). fallback: icon category hoặc 🥤 */
+    smartIcon(name, fallback) {
+      const n = String(name || '').toLowerCase();
+      const RULES = [
+        ['trà sữa', '🧋'], ['sữa chua', '🥛'], ['đá xay', '🍧'],
+        ['mỳ cay', '🍜'], ['mì cay', '🍜'],
+        ['cà phê', '☕'], ['cafe', '☕'], ['bạc xỉu', '☕'], ['espresso', '☕'], ['latte', '☕'],
+        ['matcha', '🍵'], ['trà xanh', '🍵'], ['ô long', '🍵'], ['o long', '🍵'],
+        ['socola', '🍫'], ['cacao', '🍫'], ['chocolate', '🍫'],
+        ['phô mai', '🧀'], ['cheese', '🧀'],
+        ['việt quất', '🫐'], ['dâu', '🍓'], ['đào', '🍑'], ['xoài', '🥭'],
+        ['dưa hấu', '🍉'], ['dừa', '🥥'], ['cam ', '🍊'], ['cam,', '🍊'],
+        ['chanh', '🍋'], ['ổi', '🍐'], ['nho', '🍇'], ['táo', '🍎'], ['dứa', '🍍'],
+        ['sen', '🌸'], ['nhài', '🌼'], ['hoa quả', '🍹'],
+        ['khoai', '🍟'], ['gà', '🍗'], ['xúc xích', '🌭'], ['bò', '🥩'],
+        ['nem', '🥟'], ['há cảo', '🥟'], ['phomai que', '🧀'],
+        ['kem', '🍦'], ['trân châu', '🧋'], ['thạch', '🍮'], ['pudding', '🍮'],
+        ['nóng', '🔥'], ['trà', '🍵'],
+      ];
+      for (let i = 0; i < RULES.length; i++) {
+        if (n.indexOf(RULES[i][0]) >= 0) return RULES[i][1];
+      }
+      return fallback || '🥤';
+    },
   };
 
   global.Utils = Utils;
