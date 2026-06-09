@@ -61,17 +61,29 @@
     }));
   }
 
-  // ---- Persist (debounced) ----
+  // ---- Persist (debounced + robust) ----
+  // 2026-06-09 PATCH: Fix race condition khi user reload nhanh sau khi save.
+  // idbPut() now awaits transaction.oncomplete explicitly (Promise resolves
+  // when blob FULLY written to disk, not just queued).
   let persistTimer = null;
+  let persistInFlight = null;  // Promise — caller can await to ensure write done.
   function schedulePersist(ms) {
     clearTimeout(persistTimer);
     persistTimer = setTimeout(() => persist().catch((e) => console.error('[db] persist', e)), ms || 200);
   }
   async function persist() {
     if (!db) return;
+    // If a persist is in-flight, wait for it before starting next (avoid concurrent writes)
+    if (persistInFlight) { try { await persistInFlight; } catch (e) {} }
     const data = db.export();
-    await idbPut(data);
+    persistInFlight = idbPut(data).finally(() => { persistInFlight = null; });
+    await persistInFlight;
     EventBus.emit('db:persisted', { size: data.length });
+  }
+  /** Force flush — await this before navigating away to ensure DB safely written. */
+  async function flush() {
+    clearTimeout(persistTimer);
+    await persist();
   }
 
   // ---- Schema + seed ----
@@ -150,16 +162,45 @@
     if (n > 0) return false;
 
     const now = Date.now();
-    // Default branch (white-label, user edits in settings)
-    db.run("INSERT INTO branches (name, address, phone, tax_rate, round_to, license_to, created_at) VALUES (?,?,?,?,?,?,?)",
-      ['Quán cafe của tôi', '', '', 0, 1000, '', now]);
+    // ---- Branch info: load preset if available, else default ----
+    // 2026-06-09 PATCH: support window.__BRANCH_PRESET__ from config/branch-preset.<name>.js
+    const preset = global.__BRANCH_PRESET__ || null;
+    const branchName    = preset?.name      || 'Quán cafe của tôi';
+    const branchAddress = preset?.address   || '';
+    const branchPhone   = preset?.phone     || '';
+    const branchSlogan  = preset?.slogan    || '';
+    const branchTax     = preset?.tax_rate ?? 0;
+    const branchRound   = preset?.round_to  || 1000;
+    const branchLicense = preset?.license_to|| '';
+    db.run("INSERT INTO branches (name, address, phone, slogan, tax_rate, round_to, license_to, created_at) VALUES (?,?,?,?,?,?,?,?)",
+      [branchName, branchAddress, branchPhone, branchSlogan, branchTax, branchRound, branchLicense, now]);
     const branchId = db.exec("SELECT last_insert_rowid()")[0].values[0][0];
 
-    // Default owner PIN 1234 — user MUST change
-    const ownerPin = await Utils.hashPin('1234', branchId);
+    // Apply payment config from preset (always SAFE — no secret key committed unless preset has it)
+    if (preset?.payment) {
+      const p = preset.payment;
+      db.run("UPDATE branches SET payment_bank_bin=?, payment_account_no=?, payment_account_name=?, payment_qr_enabled=? WHERE id=?",
+        [p.bank_bin || null, p.account_no || null, p.account_name || null, p.qr_enabled ? 1 : 0, branchId]);
+    }
+    if (preset?.sepay) {
+      const s = preset.sepay;
+      // NOTE: api_key được lưu plaintext nếu preset có. Khuyến nghị: KHÔNG commit api_key thật lên repo public.
+      db.run("UPDATE branches SET sepay_api_key=?, sepay_enabled=?, sepay_polling_seconds=? WHERE id=?",
+        [s.api_key || null, s.enabled ? 1 : 0, s.polling_seconds || 5, branchId]);
+    }
+    if (preset?.telegram) {
+      const t = preset.telegram;
+      db.run("UPDATE branches SET telegram_bot_token=?, telegram_chat_id=?, telegram_notify_enabled=? WHERE id=?",
+        [t.bot_token || null, t.chat_id || null, t.enabled ? 1 : 0, branchId]);
+    }
+
+    // Default owner PIN 1234 — user MUST change (cảnh báo ở Settings)
+    const ownerPinValue = preset?.default_pins?.owner || '1234';
+    const staffPinValue = preset?.default_pins?.staff || '5678';
+    const ownerPin = await Utils.hashPin(ownerPinValue, branchId);
     db.run("INSERT INTO users (branch_id, name, pin_hash, role, active, created_at) VALUES (?,?,?,?,1,?)",
       [branchId, 'Chủ quán', ownerPin, 'owner', now]);
-    const staffPin = await Utils.hashPin('5678', branchId);
+    const staffPin = await Utils.hashPin(staffPinValue, branchId);
     db.run("INSERT INTO users (branch_id, name, pin_hash, role, active, created_at) VALUES (?,?,?,?,1,?)",
       [branchId, 'Nhân viên 1', staffPin, 'staff', now]);
 
@@ -389,5 +430,5 @@
     return true;
   }
 
-  global.DB = { init, exec, run, lastInsertId, persist, exportBlob, importBlob, resetAll, reload };
+  global.DB = { init, exec, run, lastInsertId, persist, flush, exportBlob, importBlob, resetAll, reload };
 })(window);
