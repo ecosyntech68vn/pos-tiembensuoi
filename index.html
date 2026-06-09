@@ -580,7 +580,7 @@
                   <div x-show="impResult" style="margin-top: 16px; padding: 12px; background: var(--primary-light); border-radius: var(--r-md);">
                     <div class="text-success" style="font-weight: 600;">✓ Đã import <b x-text="impResult?.imported"></b> đơn (<span x-text="impResult?.skipped"></span> bỏ qua trùng)</div>
                     <div class="text-xs text-muted" x-show="impResult?.deduct_lines?.length > 0">
-                      Trừ kho: <span class="num" x-text="impResult.deduct_lines.length"></span> dòng nguyên liệu
+                      Trừ kho: <span class="num" x-text="(impResult && impResult.deduct_lines ? impResult.deduct_lines.length : 0)"></span> dòng nguyên liệu
                     </div>
                   </div>
                 </div>
@@ -1858,7 +1858,10 @@
       <template x-for="(t, idx) in toasts" :key="t.id">
         <div class="toast">
           <span x-text="t.msg"></span>
-          <button x-show="t.undo" style="margin-left: 8px; background: var(--accent); color: #1f1300; padding: 2px 8px; border-radius: 4px; border: 0; font-weight: 600; cursor: pointer; font-size: 12px;" @click="runUndo(t.id)">Hoàn lại</button>
+          <!-- 2026-06-10 CRITICAL FIX: x-show="t.undo" làm Alpine TỰ GỌI hàm undo khi render
+               (Alpine auto-invoke function trong expression) → món vừa thêm bị xoá ngay.
+               Dùng flag boolean has_undo thay vì function reference. -->
+          <button x-show="t.has_undo" style="margin-left: 8px; background: var(--accent); color: #1f1300; padding: 2px 8px; border-radius: 4px; border: 0; font-weight: 600; cursor: pointer; font-size: 12px;" @click="runUndo(t.id)">Hoàn lại</button>
         </div>
       </template>
     </div>
@@ -2211,7 +2214,7 @@
         // ---- Toasts + Undo ----
         showToast(msg, undoFn) {
           const id = this._toastId++;
-          this.toasts.push({ id, msg, undo: undoFn || null });
+          this.toasts.push({ id, msg, undo: undoFn || null, has_undo: typeof undoFn === 'function' });
           if (this.toasts.length > 3) this.toasts.shift();
           const ttl = undoFn ? 8000 : 2800;
           setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, ttl);

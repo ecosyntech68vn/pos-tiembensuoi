@@ -4,7 +4,7 @@
 // ============================================================================
 // 2026-06-10 v9: thêm kiotviet-pull.js (index.html load nhưng không cache → offline chết),
 // 4 file data/*.csv (db.js seed lần đầu cần), branch-preset config.
-const CACHE = 'pos-cafe-v12'; // v12 2026-06-10: giá size L đúng theo CSV, kiosk chọn size, scrollbar + theme xanh, emoji Win10-safe
+const CACHE = 'pos-cafe-v13'; // v13 2026-06-10: FIX giỏ hàng tự xoá món (Alpine auto-invoke t.undo trong x-show)
 const CORE_ASSETS = [
   './',
   './index.html',
