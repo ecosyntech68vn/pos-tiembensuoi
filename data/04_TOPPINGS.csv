@@ -1,0 +1,17 @@
+topping_code,name_vn,applies_to_category,price_sell_vnd,ingredient_ref,qty_default,unit,status,note
+TP-DR-001,Trân châu ngọc trai,Drinks,6000,IG-TC-002,30,gram,ACTIVE,1 thìa
+TP-DR-002,Trân châu đen,Drinks,6000,IG-SF-006,30,gram,ACTIVE,Đã ủ đường đen
+TP-DR-003,Thạch nha đam,Drinks,6000,IG-TC-003,30,gram,ACTIVE,
+TP-DR-004,Thạch con cá,Drinks,6000,IG-TC-004,30,gram,ACTIVE,
+TP-DR-005,Kem cheese,Drinks,6000,IG-SF-009,30,ml,ACTIVE,Topping floating
+TP-DR-006,Kem trứng,Drinks,6000,IG-SF-010,30,ml,ACTIVE,
+TP-FD-001,Rau (mỳ cay),Food,6000,IG-OT-012,50,gram,ACTIVE,Cải tím + xanh
+TP-FD-002,Ngao thêm,Food,6000,IG-FD-020,100,gram,ACTIVE,
+TP-FD-003,Xúc xích thêm,Food,5000,IG-FD-001,2,cái,ACTIVE,
+TP-FD-004,Chả cá thêm,Food,5000,IG-FD-015,5,viên,ACTIVE,
+TP-FD-005,Thanh cua thêm,Food,5000,IG-FD-019,1,thanh,ACTIVE,
+TP-FD-006,Bò thêm,Food,10000,IG-FD-017,70,gram,ACTIVE,
+TP-FD-007,Tôm thêm,Food,15000,IG-FD-016,30,gram,ACTIVE,1 con
+TP-FD-008,Sườn sụn thêm,Food,15000,IG-FD-021,70,gram,ACTIVE,
+TP-FD-009,Mực thêm,Food,8000,IG-FD-018,30,gram,ACTIVE,
+TP-FD-010,Mỳ thêm,Food,12000,IG-FD-013,1,gói,ACTIVE,

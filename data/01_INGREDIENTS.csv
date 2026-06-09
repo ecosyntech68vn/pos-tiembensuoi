@@ -1,0 +1,109 @@
+ingredient_code,name_vn,category_sub,unit,unit_cost_vnd,supplier,stock_current,stock_min,status,note
+IG-TE-001,Trà nhài (sablee),Trà,gram,400,NCC trà địa phương,0,500,ACTIVE,17g/1L cốt trà
+IG-TE-002,Trà nhài (giọt nước),Trà,gram,400,NCC trà địa phương,0,500,ACTIVE,17g/1L cốt trà
+IG-TE-003,Hồng trà,Trà,gram,350,NCC trà địa phương,0,500,ACTIVE,20g/1L cốt trà
+IG-TE-004,Trà ô long,Trà,gram,500,NCC trà địa phương,0,300,ACTIVE,20g/1L cốt trà
+IG-TE-005,Trà sen vàng (gói lọc),Trà,gói,3000,Tiệm trà,0,30,ACTIVE,2 gói/150ml nước
+IG-CO-001,Cà phê bột pha phin,Cà phê,gram,250,NCC cà phê Tây Nguyên,0,1000,ACTIVE,150g + 400ml nước
+IG-SY-001,Siro đào,Siro,ml,80,Monin/Torani,0,500,ACTIVE,
+IG-SY-002,Siro cam,Siro,ml,80,Monin/Torani,0,500,ACTIVE,
+IG-SY-003,Siro bạc hà xanh,Siro,ml,80,Monin/Torani,0,500,ACTIVE,
+IG-SY-004,Siro bạc hà đỏ,Siro,ml,80,Monin/Torani,0,300,ACTIVE,Cho mix bạc hà việt quất
+IG-SY-005,Siro táo xanh,Siro,ml,80,Monin/Torani,0,500,ACTIVE,
+IG-SY-006,Siro vani,Siro,ml,80,Monin/Torani,0,500,ACTIVE,
+IG-SY-007,Siro hạt dẻ,Siro,ml,80,Monin/Torani,0,300,ACTIVE,
+IG-SY-008,Siro dâu,Siro,ml,80,Monin/Torani,0,500,ACTIVE,
+IG-SY-009,Siro dừa,Siro,ml,80,Monin/Torani,0,300,ACTIVE,
+IG-SY-010,Siro dưa gang,Siro,ml,80,Monin/Torani,0,300,ACTIVE,
+IG-SY-011,Siro chanh leo,Siro,ml,80,Monin/Torani,0,300,ACTIVE,
+IG-SY-012,Nước đào (juice),Siro,ml,60,NCC juice,0,500,ACTIVE,Hộp nước đào
+IG-SY-013,Nước cam tươi ép,Siro,ml,40,Tự ép từ cam tươi,0,500,ACTIVE,Ép từ IG-FR-001
+IG-JM-001,Mứt việt quất,Mứt,ml,150,NCC mứt,0,500,ACTIVE,
+IG-JM-002,Mứt xoài,Mứt,ml,120,NCC mứt,0,500,ACTIVE,
+IG-JM-003,Mứt chanh leo,Mứt,ml,120,NCC mứt,0,500,ACTIVE,
+IG-JM-004,Mứt dưa lưới,Mứt,ml,140,NCC mứt,0,300,ACTIVE,
+IG-JM-005,Mứt dưa gang,Mứt,ml,140,NCC mứt,0,300,ACTIVE,
+IG-JM-006,Mứt dâu,Mứt,ml,130,NCC mứt,0,300,ACTIVE,
+IG-JM-007,Mứt đào,Mứt,ml,140,NCC mứt,0,300,ACTIVE,
+IG-JM-008,Sốt dừa nướng,Mứt,ml,180,NCC mứt,0,300,ACTIVE,Cho sữa chua dừa
+IG-MK-001,Sữa đặc Ông Thọ,Sữa,ml,80,Vinamilk/Ông Thọ,0,2000,ACTIVE,
+IG-MK-002,Sữa tươi không đường,Sữa,ml,30,TH/Vinamilk,0,5000,ACTIVE,
+IG-MK-003,Sữa béo (creamer),Sữa,ml,100,NCC bakery,0,2000,ACTIVE,
+IG-MK-004,Kem béo whipping,Sữa,ml,150,Anchor/Tatua,0,2000,ACTIVE,Cho kem cheese
+IG-MK-005,Rich (cream rich lùn),Sữa,ml,140,NCC bakery,0,2000,ACTIVE,Đánh kem đá xay + trà thạch đào
+IG-MK-006,Silver whip,Sữa,ml,160,NCC bakery,0,1000,ACTIVE,Đánh kem đá xay
+IG-MK-007,Cream whip,Sữa,ml,180,NCC bakery,0,1000,ACTIVE,Đánh kem đá xay
+IG-MK-008,Cốt dừa,Sữa,ml,60,NCC dừa,0,1000,ACTIVE,
+IG-MK-009,Sữa chua hộp,Sữa,hộp,7000,Vinamilk/TH,0,100,ACTIVE,Cho món sữa chua
+IG-PW-001,Bột sữa béo,Bột,thìa,2500,Indo/Frima,0,200,ACTIVE,1 thìa ~ 15g
+IG-PW-002,Bột vị (chung),Bột,thìa,3000,NCC bột,0,100,ACTIVE,Bột chung cho TS có vị
+IG-PW-003,Bột matcha,Bột,thìa,5000,Nhật/Đài Loan,0,100,ACTIVE,Loại tốt
+IG-PW-004,Bột cacao,Bột,thìa,3500,Indo/VN,0,100,ACTIVE,
+IG-PW-005,Bột socola,Bột,thìa,3500,Indo/VN,0,100,ACTIVE,
+IG-PW-006,Bột khoai môn,Bột,thìa,3000,Đài Loan,0,80,ACTIVE,
+IG-PW-007,Bột sầu riêng,Bột,thìa,3500,Đài Loan/Thái,0,60,ACTIVE,
+IG-PW-008,Bột kem trứng,Bột,gram,800,NCC bakery,0,200,ACTIVE,30g/lần đánh
+IG-PW-009,Bột phomai rắc,Bột,gram,400,NCC snack,0,500,ACTIVE,Cho khoai tây lắc
+IG-PW-010,Bột ớt cánh,Bột,gram,250,NCC gia vị,0,500,ACTIVE,Cho mỳ cay
+IG-FR-001,Cam tươi,Trái cây,quả,15000,Chợ địa phương,0,30,ACTIVE,Ép nước
+IG-FR-002,Chanh tươi,Trái cây,quả,3000,Chợ địa phương,0,100,ACTIVE,Cốt chanh
+IG-FR-003,Quất tươi,Trái cây,quả,1500,Chợ địa phương,0,200,ACTIVE,
+IG-FR-004,Xoài chín,Trái cây,quả,15000,Chợ địa phương,0,30,ACTIVE,Dầm vào cốc
+IG-FR-005,Bơ tươi,Trái cây,quả,20000,Chợ địa phương,0,20,ACTIVE,Nửa quả/cốc
+IG-FR-006,Đào tươi (decor),Trái cây,lát,2000,Chợ địa phương,0,50,ACTIVE,
+IG-FR-007,Táo xanh,Trái cây,quả,10000,Chợ địa phương,0,30,ACTIVE,Decor
+IG-FR-008,Dưa hấu,Trái cây,kg,15000,Chợ địa phương,0,10,ACTIVE,Ép nước + decor
+IG-FR-009,Dưa lưới,Trái cây,kg,40000,Chợ địa phương,0,5,ACTIVE,Decor
+IG-FR-010,Hạt hướng dương,Trái cây,kg,80000,NCC snack,0,5,ACTIVE,Đồ ăn vặt
+IG-HB-001,Sả tươi,Thảo mộc,củ,1000,Chợ địa phương,0,50,ACTIVE,
+IG-HB-002,Gừng tươi,Thảo mộc,gram,30,Chợ địa phương,0,500,ACTIVE,
+IG-HB-003,Lá bạc hà tươi,Thảo mộc,gram,300,Chợ địa phương,0,200,ACTIVE,Decor
+IG-HB-004,Lá chanh tươi,Thảo mộc,gram,50,Chợ địa phương,0,200,ACTIVE,Cho khô gà
+IG-SW-001,Đường nước (pha sẵn),Đường,ml,15,Tự pha 1kg đường + 500ml,0,5000,ACTIVE,Từ IG-SW-002
+IG-SW-002,Đường trắng tinh luyện,Đường,gram,18,Biên Hòa,0,5000,ACTIVE,
+IG-SW-003,Đường phèn Anh Đăng,Đường,gram,30,Anh Đăng Biên Hòa,0,5000,ACTIVE,Cho sốt mỳ cay
+IG-SW-004,Đường đen,Đường,gram,40,NCC chè bánh,0,3000,ACTIVE,Trộn trân châu
+IG-SW-005,Muối tinh,Đường,gram,20,NCC gia vị,0,500,ACTIVE,Cho kem cheese
+IG-TC-001,Trân châu đen,Topping,gram,80,NCC trân châu,0,2000,ACTIVE,Nửa cân nấu 2L
+IG-TC-002,Trân châu ngọc trai,Topping,gram,90,NCC trân châu,0,1000,ACTIVE,
+IG-TC-003,Thạch nha đam,Topping,gram,50,NCC thạch,0,1000,ACTIVE,
+IG-TC-004,Thạch con cá,Topping,gram,60,NCC thạch,0,1000,ACTIVE,
+IG-TC-005,Nước nha đam (chai),Topping,ml,40,NCC chè,0,2000,ACTIVE,
+IG-TC-006,Hạt sen,Topping,gram,300,NCC chè,0,500,ACTIVE,Cho trà sen vàng
+IG-TC-007,Nước sen,Topping,ml,30,Tự nấu từ hạt sen,0,2000,ACTIVE,
+IG-TC-008,Vụn dừa nướng,Topping,gram,200,NCC dừa,0,500,ACTIVE,
+IG-OT-001,Đá viên,Khác,kg,2000,Tự làm,0,30,ACTIVE,
+IG-OT-002,Nước lọc,Khác,lít,2000,Bình 20L,0,100,ACTIVE,
+IG-OT-003,Mắm Nam Ngư đệ nhị,Khác,ml,30,Masan,0,1000,ACTIVE,Sốt mỳ cay
+IG-OT-004,Dấm Hoàng Hải,Khác,ml,25,Hoàng Hải,0,2000,ACTIVE,Sốt mỳ cay
+IG-OT-005,Tương cà,Khác,ml,40,Heinz/Cholimex,0,500,ACTIVE,
+IG-OT-006,Tương ớt,Khác,ml,35,Cholimex,0,500,ACTIVE,
+IG-OT-007,Ớt tươi,Khác,gram,50,Chợ địa phương,0,500,ACTIVE,Xay sốt cay
+IG-OT-008,Sốt tokboki,Khác,ml,80,NCC Hàn Quốc,0,1000,ACTIVE,
+IG-OT-009,Dầu chiên,Khác,lít,40000,NCC dầu ăn,0,30,ACTIVE,
+IG-OT-010,Hành tây,Khác,củ,5000,Chợ địa phương,0,20,ACTIVE,
+IG-OT-011,Ngô bao tử,Khác,gram,80,NCC mỳ,0,500,ACTIVE,
+IG-OT-012,Cải tím (rau ăn kèm),Khác,gram,50,Chợ địa phương,0,500,ACTIVE,
+IG-OT-013,Nấm rơm,Khác,gram,80,Chợ địa phương,0,500,ACTIVE,
+IG-FD-001,Xúc xích bò Đức,Đồ ăn,cái,4000,NCC frozen,0,200,ACTIVE,
+IG-FD-002,Phô mai que (frozen),Đồ ăn,cái,3500,NCC frozen,0,150,ACTIVE,
+IG-FD-003,Nem chua rán,Đồ ăn,cái,2500,NCC frozen,0,200,ACTIVE,
+IG-FD-004,Khoai tây chiên cắt sẵn,Đồ ăn,gram,40,NCC frozen,0,5000,ACTIVE,
+IG-FD-005,Khoai lệ phố (viên),Đồ ăn,viên,2500,NCC frozen,0,150,ACTIVE,
+IG-FD-006,Khoai lang kén,Đồ ăn,viên,1500,NCC frozen,0,200,ACTIVE,
+IG-FD-007,Cá viên (viên),Đồ ăn,viên,500,NCC frozen,0,500,ACTIVE,
+IG-FD-008,Đùi/cánh gà,Đồ ăn,cái,8000,NCC gà,0,100,ACTIVE,
+IG-FD-009,Toboki (viên gạo),Đồ ăn,viên,1000,NCC Hàn Quốc,0,300,ACTIVE,
+IG-FD-010,Bò khô,Đồ ăn,gram,300,NCC snack,0,1000,ACTIVE,
+IG-FD-011,Khô gà,Đồ ăn,gram,280,NCC snack,0,1000,ACTIVE,
+IG-FD-012,Lạp xưởng,Đồ ăn,cây,12000,NCC khô,0,50,ACTIVE,
+IG-FD-013,Mỳ cay khô (gói),Đồ ăn,gói,8000,Hàn Quốc,0,100,ACTIVE,
+IG-FD-014,Gà viên đông lạnh,Đồ ăn,viên,2000,NCC frozen,0,200,ACTIVE,
+IG-FD-015,Chả cá viên,Đồ ăn,viên,600,NCC frozen,0,500,ACTIVE,Topping mỳ
+IG-FD-016,Tôm tươi,Đồ ăn,gram,400,Chợ địa phương,0,500,ACTIVE,Topping mỳ
+IG-FD-017,Thịt bò thái,Đồ ăn,gram,350,Chợ địa phương,0,500,ACTIVE,Topping mỳ
+IG-FD-018,Mực thái,Đồ ăn,gram,300,Chợ địa phương,0,500,ACTIVE,Topping mỳ
+IG-FD-019,Thanh cua,Đồ ăn,thanh,3000,NCC frozen,0,100,ACTIVE,Topping mỳ
+IG-FD-020,Ngao,Đồ ăn,gram,80,Chợ địa phương,0,500,ACTIVE,Topping mỳ
+IG-FD-021,Sườn sụn,Đồ ăn,gram,200,Chợ địa phương,0,500,ACTIVE,Topping mỳ
+IG-FD-022,Rau cải xanh,Đồ ăn,gram,30,Chợ địa phương,0,500,ACTIVE,Topping mỳ
