@@ -594,9 +594,14 @@
                   <h1>Bếp</h1>
                   <div class="page-subtitle">Kanban đơn cần làm — đơn Kiosk tự động xuất hiện trong cột "Chờ làm".</div>
                 </div>
-                <button class="btn btn-ghost btn-sm" @click="loadKitchen()">
-                  <span x-html="Icons.svg('refresh','width=14 height=14')"></span> Tải lại
-                </button>
+                <div style="display: flex; gap: 8px;">
+                  <button class="btn btn-sm" :class="showRecipes ? 'btn-accent' : 'btn-ghost'" @click="toggleRecipes()">
+                    📖 Công thức: <b x-text="showRecipes ? 'BẬT' : 'Tắt'"></b>
+                  </button>
+                  <button class="btn btn-ghost btn-sm" @click="loadKitchen()">
+                    <span x-html="Icons.svg('refresh','width=14 height=14')"></span> Tải lại
+                  </button>
+                </div>
               </div>
 
               <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
@@ -636,9 +641,13 @@
                         <template x-for="(it, idx) in kitchenItemsFor(o.id)" :key="idx">
                           <li>
                             <span class="num" x-text="it.qty"></span>×
-                            <span x-text="it.product_name"></span>
-                            <span class="text-subtle" x-show="it.variants_json && it.variants_json !== '[]'"
-                                  x-text="' · ' + (JSON.parse(it.variants_json||'[]').map(v=>v.name).join(' · '))"></span>
+                            <b x-text="Utils.displayName(it.product_name)"></b>
+                            <div x-show="showRecipes" style="margin: 2px 0 6px 4px; padding: 4px 8px; background: var(--primary-light); border-radius: 6px;">
+                              <template x-for="(rl, ri) in recipeLines(it)" :key="ri">
+                                <div class="text-subtle" x-text="'• ' + rl"></div>
+                              </template>
+                              <div class="text-subtle" x-show="recipeLines(it).length === 0" style="font-style: italic;">Chưa có công thức</div>
+                            </div>
                           </li>
                         </template>
                       </ul>
@@ -677,7 +686,16 @@
                       </div>
                       <ul class="text-xs text-muted" style="margin: 8px 0 0 16px; padding: 0;">
                         <template x-for="(it, idx) in kitchenItemsFor(o.id)" :key="idx">
-                          <li><span class="num" x-text="it.qty"></span>× <span x-text="it.product_name"></span></li>
+                          <li>
+                            <span class="num" x-text="it.qty"></span>×
+                            <b x-text="Utils.displayName(it.product_name)"></b>
+                            <div x-show="showRecipes" style="margin: 2px 0 6px 4px; padding: 4px 8px; background: var(--primary-light); border-radius: 6px;">
+                              <template x-for="(rl, ri) in recipeLines(it)" :key="ri">
+                                <div class="text-subtle" x-text="'• ' + rl"></div>
+                              </template>
+                              <div class="text-subtle" x-show="recipeLines(it).length === 0" style="font-style: italic;">Chưa có công thức</div>
+                            </div>
+                          </li>
                         </template>
                       </ul>
                       <div style="display: flex; gap: 4px; margin-top: 10px;">
@@ -1941,6 +1959,7 @@
 
         // ---- Kitchen (V2.3) ----
         kitchen: { pending: [], preparing: [], ready: [] },
+        showRecipes: localStorage.getItem('eco_kitchen_recipes') === '1',
         kitchenAssignTarget: null,
         kitchenLastPoll: 0,
         kitchenPollTimer: null,
@@ -2536,6 +2555,13 @@
           };
         },
         kitchenItemsFor(orderId) { return Models.getOrderItems(orderId); },
+        toggleRecipes() {
+          this.showRecipes = !this.showRecipes;
+          localStorage.setItem('eco_kitchen_recipes', this.showRecipes ? '1' : '0');
+        },
+        recipeLines(it) {
+          try { return Models.recipeLinesForOrderItem(it); } catch (e) { return []; }
+        },
         moveKitchen(orderId, status) {
           Models.updateKitchenStatus(orderId, status, this.user?.id);
           this.loadKitchen();

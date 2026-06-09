@@ -641,6 +641,11 @@ h3, .h3 { font-size: 16px; line-height: 24px; font-weight: 600; margin: 0; }
 .product-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  /* 2026-06-10 FIX "card thu lu": container cao cố định làm browser chia đều
+     chiều cao cho 23 hàng → card bị nén còn ~27px (overflow hidden nuốt tên+giá).
+     max-content + align start = hàng cao theo nội dung, container scroll. */
+  grid-auto-rows: max-content;
+  align-content: start;
   gap: var(--s-3);
   overflow-y: auto;
   padding-bottom: var(--s-3);

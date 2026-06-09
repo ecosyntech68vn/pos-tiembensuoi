@@ -534,6 +534,49 @@
       return rows.map((r) => r.supplier);
     },
 
+    // ---- Recipe helpers ----
+    /** Trích size code (M/L/S/XL) từ variants snapshot — hỗ trợ array (canonical) + object (legacy) */
+    sizeFromVariants(src) {
+      try {
+        if (src == null) return null;
+        const v = (typeof src === 'string') ? JSON.parse(src) : src;
+        let raw = null;
+        if (Array.isArray(v)) {
+          for (let k = 0; k < v.length; k++) {
+            const nm = v[k] && v[k].name ? String(v[k].name).trim() : '';
+            if (/^(XXL|XL|S|M|L)\b/i.test(nm)) { raw = nm; break; }
+          }
+        } else if (v && typeof v === 'object') {
+          raw = v.size || v.size_name || v.variant || v.variant_name || null;
+        }
+        if (!raw) return null;
+        const m = String(raw).trim().match(/^[A-Za-z]+/);
+        return m ? m[0].toUpperCase() : String(raw).toUpperCase();
+      } catch (e) { return null; }
+    },
+
+    /** Dòng công thức pha chế cho 1 order item — hiển thị màn Bếp.
+     *  Trả về ["50ml Cốt chanh (size M)", "3g Đường", ...] đã nhân theo qty. */
+    recipeLinesForOrderItem(it) {
+      if (!it || !it.product_id) return [];
+      const orderSize = Models.sizeFromVariants(it.variants_json != null ? it.variants_json : it.variants);
+      const recipes = DB.exec(`
+        SELECT r.qty_per_unit, r.variant_filter, i.name, i.unit
+        FROM recipes r JOIN ingredients i ON i.id = r.ingredient_id
+        WHERE r.product_id=? ORDER BY i.name
+      `, [it.product_id]);
+      const out = [];
+      recipes.forEach((rec) => {
+        if (rec.variant_filter !== null && rec.variant_filter !== undefined && rec.variant_filter !== '') {
+          if (String(rec.variant_filter).toUpperCase() !== orderSize) return;
+        }
+        const q = Math.round(rec.qty_per_unit * (it.qty || 1) * 100) / 100;
+        const nm = String(rec.name || '').replace(/^\[[^\]]+\]\s*/, '');
+        out.push(q + (rec.unit || '') + ' ' + nm);
+      });
+      return out;
+    },
+
     // ---- Recipe inventory deduction ----
     deductInventoryForOrderItems(branchId, orderId, items, mode) {
       // mode: 'auto' | 'preview' (preview returns list without writing)
@@ -546,33 +589,10 @@
         //   { size: "M (500ml)" }                          ← name string with code prefix
         //   { size_name: "M (500ml)" } / { variant: "M" } ← legacy
         // 2026-06-10 PRODUCTION FIX (CEO_THUAN audit): cart lưu variants_json dạng
-        // ARRAY [{group_id, id, name:'M', price_modifier}] (createOrder stringify it.variants).
-        // Bản cũ chỉ đọc object {size:...} → orderSize luôn null → recipe theo size
-        // KHÔNG BAO GIỜ trừ kho. Nay hỗ trợ cả 2 shape: array (canonical) + object (legacy).
-        let orderSize = null;
-        try {
-          if (it.variants_json || it.variants) {
-            const src = it.variants_json != null ? it.variants_json : it.variants;
-            const v = (typeof src === 'string') ? JSON.parse(src) : src;
-            let raw = null;
-            if (Array.isArray(v)) {
-              // Array shape: tìm variant có name bắt đầu bằng size code (M/L/S/XL...)
-              for (let k = 0; k < v.length; k++) {
-                const nm = v[k] && v[k].name ? String(v[k].name).trim() : '';
-                if (/^(XXL|XL|S|M|L)\b/i.test(nm)) { raw = nm; break; }
-              }
-              // Fallback: variant đầu tiên có name
-              if (!raw && v.length && v[0] && v[0].name) raw = String(v[0].name);
-            } else if (v && typeof v === 'object') {
-              raw = v.size || v.size_name || v.variant || v.variant_name || null;
-            }
-            if (raw) {
-              // Extract leading letter token (M/L/S) so "M (500ml)" → "M"
-              const m = String(raw).trim().match(/^[A-Za-z]+/);
-              orderSize = m ? m[0].toUpperCase() : String(raw).toUpperCase();
-            }
-          }
-        } catch (e) { /* malformed snapshot — treat as no size filter */ }
+        // ARRAY [{group_id, id, name:'M', price_modifier}]. Bản cũ chỉ đọc object
+        // {size:...} → orderSize luôn null → recipe theo size KHÔNG BAO GIỜ trừ kho.
+        // Logic parse tách thành Models.sizeFromVariants (dùng chung với màn Bếp).
+        const orderSize = Models.sizeFromVariants(it.variants_json != null ? it.variants_json : it.variants);
         const recipes = DB.exec(`
           SELECT r.ingredient_id, r.qty_per_unit, r.variant_filter, i.name, i.unit
           FROM recipes r JOIN ingredients i ON i.id = r.ingredient_id

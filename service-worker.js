@@ -4,7 +4,7 @@
 // ============================================================================
 // 2026-06-10 v9: thêm kiotviet-pull.js (index.html load nhưng không cache → offline chết),
 // 4 file data/*.csv (db.js seed lần đầu cần), branch-preset config.
-const CACHE = 'pos-cafe-v10'; // v10 2026-06-10: UI polish — 12 màu category, smart icon, tên sạch
+const CACHE = 'pos-cafe-v11'; // v11 2026-06-10: fix grid POS bị nén, toggle công thức màn Bếp, ẩn mã hàng
 const CORE_ASSETS = [
   './',
   './index.html',
