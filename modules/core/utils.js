@@ -103,20 +103,21 @@
     /** Icon thông minh suy từ tên món (ưu tiên cụm dài trước). fallback: icon category hoặc 🥤 */
     smartIcon(name, fallback) {
       const n = String(name || '').toLowerCase();
+      // LƯU Ý: chỉ dùng emoji ≤ Emoji 12 (Windows 10 không render 🧋🫐 Emoji 13 → ô vuông)
       const RULES = [
-        ['trà sữa', '🧋'], ['sữa chua', '🥛'], ['đá xay', '🍧'],
+        ['trà sữa', '🥛'], ['sữa chua', '🍨'], ['đá xay', '🍧'],
         ['mỳ cay', '🍜'], ['mì cay', '🍜'],
         ['cà phê', '☕'], ['cafe', '☕'], ['bạc xỉu', '☕'], ['espresso', '☕'], ['latte', '☕'],
         ['matcha', '🍵'], ['trà xanh', '🍵'], ['ô long', '🍵'], ['o long', '🍵'],
         ['socola', '🍫'], ['cacao', '🍫'], ['chocolate', '🍫'],
         ['phô mai', '🧀'], ['cheese', '🧀'],
-        ['việt quất', '🫐'], ['dâu', '🍓'], ['đào', '🍑'], ['xoài', '🥭'],
+        ['việt quất', '🍇'], ['dâu', '🍓'], ['đào', '🍑'], ['xoài', '🥭'],
         ['dưa hấu', '🍉'], ['dừa', '🥥'], ['cam ', '🍊'], ['cam,', '🍊'],
         ['chanh', '🍋'], ['ổi', '🍐'], ['nho', '🍇'], ['táo', '🍎'], ['dứa', '🍍'],
         ['sen', '🌸'], ['nhài', '🌼'], ['hoa quả', '🍹'],
         ['khoai', '🍟'], ['gà', '🍗'], ['xúc xích', '🌭'], ['bò', '🥩'],
         ['nem', '🥟'], ['há cảo', '🥟'], ['phomai que', '🧀'],
-        ['kem', '🍦'], ['trân châu', '🧋'], ['thạch', '🍮'], ['pudding', '🍮'],
+        ['kem', '🍦'], ['trân châu', '🥛'], ['thạch', '🍮'], ['pudding', '🍮'],
         ['nóng', '🔥'], ['trà', '🍵'],
       ];
       for (let i = 0; i < RULES.length; i++) {

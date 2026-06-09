@@ -256,17 +256,31 @@
 
       // Categories (fixed map)
       const catMap = {'Trà hoa quả':1,'Trà sữa':2,'Best Seller':3,'Trà kem cheese':4,'Sữa chua':5,'Đồ đá xay':6,'Đồ uống nóng':7,'Cà phê':8,'Đồ ăn vặt':9,'Mỳ cay':10,'Topping đồ uống':11,'Topping mỳ cay':12};
-      const catIcons = {1:'🍋',2:'🧋',3:'⭐',4:'🧀',5:'🥛',6:'🍧',7:'🔥',8:'☕',9:'🍟',10:'🍜',11:'➕',12:'➕'};
+      // Icon Win10-safe (🧋/🫐 là Emoji 13 — Windows 10 không có font, hiện ô vuông)
+      const catIcons = {1:'🍋',2:'🥛',3:'⭐',4:'🧀',5:'🍨',6:'🍧',7:'🔥',8:'☕',9:'🍟',10:'🍜',11:'➕',12:'➕'};
       Object.entries(catMap).forEach(([name, id], idx) => {
         db.run("INSERT INTO categories (id, branch_id, name, sort_order, icon) VALUES (?,?,?,?,?)",
           [id, branchId, name, idx + 1, catIcons[id] || '🍴']);
       });
 
-      // Variant groups + variants
-      db.run("INSERT INTO variant_groups (id, name, selection_type, required) VALUES (?,?,?,?)",
-        [1, 'Size đồ uống', 'single', 1]);
-      db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [1, 1, 'M', 0]);
-      db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [2, 1, 'L', 0]);
+      // Variant groups theo MỨC CHÊNH GIÁ L-M thật từ CSV.
+      // 2026-06-10 FIX GIÁ: bản cũ L modifier=0 → bán size L bằng giá M, mất 5-10k/ly.
+      // Chênh không đồng nhất (đa số +5k, trà sữa khoai môn +8k, kem mây +10k)
+      // → tạo 1 group cho mỗi mức chênh, gắn sản phẩm vào group đúng mức của nó.
+      const tierGroups = new Map(); // diff(VND) -> group_id
+      let vgId = 0, varId = 0;
+      const groupForDiff = (diff) => {
+        if (tierGroups.has(diff)) return tierGroups.get(diff);
+        vgId++;
+        db.run("INSERT INTO variant_groups (id, name, selection_type, required) VALUES (?,?,?,?)",
+          [vgId, 'Size đồ uống', 'single', 1]);
+        varId++;
+        db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [varId, vgId, 'M', 0]);
+        varId++;
+        db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [varId, vgId, 'L', diff]);
+        tierGroups.set(diff, vgId);
+        return vgId;
+      };
 
       // Products: collapse menu by base_code (remove -M/-L suffix)
       const productMap = new Map();
@@ -298,7 +312,8 @@
         db.run("INSERT INTO products (id, branch_id, category_id, name, base_price, icon, active, sort_order, created_at) VALUES (?,?,?,?,?,?,1,?,?)",
           [p.id, branchId, categoryId, fullName, bp, '', idx, now]);
         if (hv) {
-          db.run("INSERT INTO product_variant_groups (product_id, group_id) VALUES (?,?)", [p.id, 1]);
+          const diff = Math.max(0, (p.sizes.L.price || 0) - (p.sizes.M.price || 0));
+          db.run("INSERT INTO product_variant_groups (product_id, group_id) VALUES (?,?)", [p.id, groupForDiff(diff)]);
         }
       });
 
@@ -405,6 +420,21 @@
     }
     // Run migrations (idempotent)
     runMigrations();
+    // 2026-06-10 v4 auto-fix: DB seed bản cũ có variant L modifier=0 (bán L giá M).
+    // Giá L gốc đã mất khi seed → không vá tại chỗ được. Nếu CHƯA có đơn nào thì
+    // reseed an toàn từ CSV; nếu đã có đơn thì cảnh báo để chủ quán tự Reset.
+    try {
+      const badL = exec("SELECT COUNT(*) AS n FROM variants WHERE name='L' AND price_modifier=0")[0].n;
+      if (badL > 0) {
+        const ords = exec("SELECT COUNT(*) AS n FROM orders")[0].n;
+        if (ords === 0) {
+          console.warn('[v4] Reseed tự động: sửa giá size L (DB chưa có đơn — an toàn).');
+          await resetAll();
+        } else {
+          console.warn('[v4] CẢNH BÁO GIÁ: size L đang bán bằng giá size M. Vào Cài đặt → Reset dữ liệu (mất ' + ords + ' đơn hiện có) để nạp giá đúng.');
+        }
+      }
+    } catch (e) { /* bảng variants có thể trống — bỏ qua */ }
     await persist();
     global.dbInstance = db;
     return db;
