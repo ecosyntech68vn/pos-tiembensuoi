@@ -2032,8 +2032,8 @@
             this.bootMsg = 'Đang nạp menu...';
             this.shop = Models.getShop();
             this.vatPct = this.shop?.tax_rate || 0;
-            global.__SHOP_TAX_RATE__ = this.vatPct / 100;
-            global.__SHOP_ROUND_TO__ = this.shop?.round_to || 0;
+            window.__SHOP_TAX_RATE__ = this.vatPct / 100;
+            window.__SHOP_ROUND_TO__ = this.shop?.round_to || 0;
             this.payment = {
               bank_bin: this.shop?.payment_bank_bin || '',
               account_no: this.shop?.payment_account_no || '',
@@ -2729,8 +2729,8 @@
             round_to: this.shop.round_to || 1000, license_to: this.shop.license_to || '',
           });
           this.vatPct = this.shop.tax_rate || 0;
-          global.__SHOP_TAX_RATE__ = this.vatPct / 100;
-          global.__SHOP_ROUND_TO__ = this.shop.round_to || 0;
+          window.__SHOP_TAX_RATE__ = this.vatPct / 100;
+          window.__SHOP_ROUND_TO__ = this.shop.round_to || 0;
           this.showToast('Đã lưu thông tin quán');
         },
         uploadLogo(ev) {
