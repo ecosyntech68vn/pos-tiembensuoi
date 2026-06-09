@@ -940,6 +940,41 @@ html.big-text body { font-size: 17.5px; }
 .product-card .product-name { min-height: 0; }
 .product-card .product-price { margin-top: auto; padding-top: 6px; font-size: 15px; }
 
+/* ============================================================================
+   2026-06-10 BRAND THEME — xanh EcoSynTech (lá → teal, như logo)
+   ============================================================================ */
+/* Nền app: gradient mint nhẹ thay trắng trơn */
+body {
+  background:
+    radial-gradient(1100px 500px at 100% 0%, color-mix(in srgb, #2dd4bf 9%, transparent), transparent 60%),
+    radial-gradient(900px 480px at 0% 100%, color-mix(in srgb, #4ade80 10%, transparent), transparent 55%),
+    var(--bg-body, #f6fdf9);
+}
+/* Nav active: gradient lá → teal, chữ trắng — nhận diện thương hiệu */
+.nav-item.active {
+  background: linear-gradient(120deg, var(--primary), #0d9488);
+  color: #fff;
+}
+.nav-item.active:hover { color: #fff; background: linear-gradient(120deg, var(--primary-hover, var(--primary)), #0f766e); }
+/* Header brand: viền dưới gradient mảnh */
+.sidebar-brand { border-bottom: 2px solid transparent;
+  border-image: linear-gradient(90deg, var(--primary), #2dd4bf) 1; }
+
+/* Hộp công thức pha chế ở màn Bếp — nền brand, chữ ĐẬM RÕ cho nhân viên đọc nhanh */
+.recipe-box {
+  margin: 4px 0 8px 4px;
+  padding: 7px 10px;
+  background: linear-gradient(135deg, #d7f8e7, #ccf5f0);
+  border-left: 3px solid var(--primary);
+  border-radius: 6px;
+}
+.recipe-line {
+  color: #065f46;            /* xanh đậm — tương phản cao trên nền mint */
+  font-weight: 600;
+  font-size: 12.5px;
+  line-height: 1.65;
+}
+
 /* Sidebar cart badge */
 .nav-item .nav-badge {
   margin-left: auto;

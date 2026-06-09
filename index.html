@@ -642,11 +642,11 @@
                           <li>
                             <span class="num" x-text="it.qty"></span>×
                             <b x-text="Utils.displayName(it.product_name)"></b>
-                            <div x-show="showRecipes" style="margin: 2px 0 6px 4px; padding: 4px 8px; background: var(--primary-light); border-radius: 6px;">
+                            <div x-show="showRecipes" class="recipe-box">
                               <template x-for="(rl, ri) in recipeLines(it)" :key="ri">
-                                <div class="text-subtle" x-text="'• ' + rl"></div>
+                                <div class="recipe-line" x-text="'• ' + rl"></div>
                               </template>
-                              <div class="text-subtle" x-show="recipeLines(it).length === 0" style="font-style: italic;">Chưa có công thức</div>
+                              <div class="recipe-line" x-show="recipeLines(it).length === 0" style="font-style: italic; opacity: 0.7;">Chưa có công thức</div>
                             </div>
                           </li>
                         </template>
@@ -689,11 +689,11 @@
                           <li>
                             <span class="num" x-text="it.qty"></span>×
                             <b x-text="Utils.displayName(it.product_name)"></b>
-                            <div x-show="showRecipes" style="margin: 2px 0 6px 4px; padding: 4px 8px; background: var(--primary-light); border-radius: 6px;">
+                            <div x-show="showRecipes" class="recipe-box">
                               <template x-for="(rl, ri) in recipeLines(it)" :key="ri">
-                                <div class="text-subtle" x-text="'• ' + rl"></div>
+                                <div class="recipe-line" x-text="'• ' + rl"></div>
                               </template>
-                              <div class="text-subtle" x-show="recipeLines(it).length === 0" style="font-style: italic;">Chưa có công thức</div>
+                              <div class="recipe-line" x-show="recipeLines(it).length === 0" style="font-style: italic; opacity: 0.7;">Chưa có công thức</div>
                             </div>
                           </li>
                         </template>
@@ -771,7 +771,12 @@
                         <td><span class="pill" :class="sourceBadge(o.order_source).cls"><span x-text="sourceBadge(o.order_source).icon"></span> <span x-text="sourceBadge(o.order_source).label"></span></span></td>
                         <td><span class="pill" :class="o.status==='paid'?'success':o.status==='cancelled'?'danger':'muted'" x-text="o.status"></span></td>
                         <td><span class="pill muted text-xs" x-text="o.kitchen_status || 'pending'"></span></td>
-                        <td>
+                        <td style="white-space: nowrap;">
+                          <!-- 2026-06-10: xác nhận đã thanh toán cho đơn pending (khách CK xong) -->
+                          <button x-show="o.status==='pending'" class="btn btn-primary btn-sm"
+                                  @click="confirmOrderPaid(o)" title="Khách đã chuyển khoản / trả tiền — đánh dấu ĐÃ THANH TOÁN">
+                            ✓ Đã TT
+                          </button>
                           <button class="btn btn-ghost btn-sm" @click="openReceipt(o, 80)" title="In bill 80mm">
                             <span x-html="Icons.svg('download','width=12 height=12')"></span>
                           </button>
@@ -1374,6 +1379,25 @@
                       <div class="text-sm" style="margin-top: 4px;" x-text="m.label"></div>
                     </button>
                   </template>
+                </div>
+              </div>
+              <!-- 2026-06-10: QR VietQR hiện ngay khi chọn Chuyển khoản — khách quét, tiền vào app
+                   ngân hàng của quán thì thu ngân bấm Xác nhận đơn -->
+              <div class="field" x-show="checkout.method==='qr'" style="text-align: center;">
+                <template x-if="payment.qr_enabled && payment.bank_bin && payment.account_no">
+                  <div>
+                    <img :src="checkoutQrUrl()" alt="QR chuyển khoản"
+                         style="width: 230px; height: 230px; border-radius: 12px; border: 2px solid var(--primary); background: #fff;" />
+                    <div class="text-sm" style="margin-top: 6px; font-weight: 600;"
+                         x-text="(VietQR.bankByBin(payment.bank_bin) ? VietQR.bankByBin(payment.bank_bin).name : '') + ' · ' + payment.account_no"></div>
+                    <div class="text-xs text-subtle" x-text="payment.account_name"></div>
+                    <div class="text-xs" style="margin-top: 6px; color: var(--primary); font-weight: 600;">
+                      Khách quét → app ngân hàng quán báo TIỀN VÀO → bấm Xác nhận đơn
+                    </div>
+                  </div>
+                </template>
+                <div x-show="!(payment.qr_enabled && payment.bank_bin && payment.account_no)" class="text-xs text-subtle" style="padding: 12px;">
+                  Chưa cấu hình tài khoản ngân hàng — vào Cài đặt → Thanh toán QR để bật.
                 </div>
               </div>
               <div class="field" x-show="checkout.method==='cash'">
@@ -2296,6 +2320,29 @@
           const out = {};
           Object.entries(window.PAYMENT_METHODS).forEach(([k, v]) => { if (k !== 'vietqr' && v.enabled) out[k] = v; });
           return out;
+        },
+        /** QR VietQR cho checkout: số tiền = tổng đơn, nội dung = mã đơn dự kiến */
+        checkoutQrUrl() {
+          if (!(this.payment.qr_enabled && this.payment.bank_bin && this.payment.account_no)) return '';
+          const seq = Models.nextOrderSequenceToday(this.shop.id);
+          return VietQR.qrUrl({
+            bank_bin: this.payment.bank_bin,
+            account_no: this.payment.account_no,
+            account_name: this.payment.account_name,
+            amount: this.cart.total(this.vatPct),
+            message: Utils.nextOrderNo(seq),
+          });
+        },
+        /** Đơn pending (khách CK xong / trả sau) → đánh dấu ĐÃ THANH TOÁN */
+        confirmOrderPaid(o) {
+          if (!confirm('Xác nhận đơn ' + o.order_no + ' (' + Utils.formatVND(o.total) + ') ĐÃ thanh toán?')) return;
+          Models.markOrderPaid(o.id, o.payment_method || 'transfer');
+          try {
+            this.bc && this.bc.postMessage({ type: 'order_paid', order_id: o.id, order_no: o.order_no, source: 'pos', origin: window.location.origin });
+          } catch (e) { /* BC not supported */ }
+          this.loadOrders(); this.refreshDashboard(); this.refreshReports();
+          this.showToast('✓ Đơn ' + o.order_no + ' đã thanh toán');
+          SyncQueue.flushOnce(this.shop.id).catch(() => {});
         },
         openCheckout() {
           console.log('[checkout] openCheckout fired, items:', this.cart.items.length);
