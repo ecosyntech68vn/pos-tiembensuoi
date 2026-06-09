@@ -9,7 +9,7 @@
 (function (global) {
   'use strict';
 
-  const DB_NAME = 'ecosyntech-pos';
+  const DB_NAME = 'ecosyntech-pos-tbs';  // 2026-06-09: switched to fresh DB name (old IDB lock workaround)
   const STORE = 'sqlite';
   const KEY = 'main.db';
   // Auto-detect base URL from db.js script location (works from any HTML, any folder)
