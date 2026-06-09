@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>Tạo QR Bàn — POS Cafe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+  .container { max-width: 1100px; margin: 0 auto; }
+  h1 { color: #15803d; margin-bottom: 8px; }
+  .desc { color: #64748b; margin-bottom: 24px; }
+  .controls { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 24px; display: flex; gap: 16px; align-items: end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  label { font-weight: 600; font-size: 14px; }
+  input { padding: 10px 14px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; }
+  button { padding: 10px 20px; background: #15803d; color: white; border: 0; border-radius: 8px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  button:hover { background: #166534; }
+  .qr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .qr-card { background: white; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); text-align: center; page-break-inside: avoid; }
+  .qr-card canvas { max-width: 180px; height: auto; }
+  .qr-table-num { font-size: 32px; font-weight: 800; color: #15803d; margin: 8px 0 0; }
+  .qr-shop-name { font-size: 13px; color: #64748b; margin-bottom: 4px; }
+  .qr-cta { font-size: 12px; color: #94a3b8; margin-top: 6px; }
+  .print-only { display: none; }
+  @media print {
+    body { padding: 8mm; }
+    .controls, h1, .desc, .actions, button { display: none; }
+    .qr-card { box-shadow: none; border: 1px dashed #ccc; }
+    .qr-grid { grid-template-columns: repeat(3, 1fr); gap: 8mm; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🍽️ Tạo QR Bàn cho Kiosk POS Cafe</h1>
+  <p class="desc">Mỗi bàn 1 QR riêng. Khách scan → vào kiosk → tự đặt món cho bàn của mình. In ra giấy hoặc decal dán mặt bàn.</p>
+
+  <div class="controls">
+    <div class="field">
+      <label>URL Kiosk</label>
+      <input id="baseUrl" type="text" value="https://ecosyntech68vn.github.io/ecosyntech-pos-cafe/kiosk.html" size="50">
+    </div>
+    <div class="field">
+      <label>Tên quán (hiện trên QR)</label>
+      <input id="shopName" type="text" value="Tiệm Bên Suối">
+    </div>
+    <div class="field">
+      <label>Bàn từ</label>
+      <input id="fromTable" type="number" value="1" min="1" max="999" style="width: 80px;">
+    </div>
+    <div class="field">
+      <label>Đến bàn</label>
+      <input id="toTable" type="number" value="15" min="1" max="999" style="width: 80px;">
+    </div>
+    <div class="field">
+      <button onclick="generate()">Tạo QR</button>
+    </div>
+    <div class="field">
+      <button onclick="window.print()" style="background:#0369a1;">🖨️ In</button>
+    </div>
+  </div>
+
+  <div class="qr-grid" id="grid"></div>
+</div>
+
+<script>
+function generate() {
+  const baseUrl = document.getElementById('baseUrl').value.trim();
+  const shopName = document.getElementById('shopName').value.trim();
+  const from = parseInt(document.getElementById('fromTable').value, 10);
+  const to = parseInt(document.getElementById('toTable').value, 10);
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let t = from; t <= to; t++) {
+    const url = baseUrl + (baseUrl.includes('?') ? '&' : '?') + 'table=' + t;
+    const card = document.createElement('div');
+    card.className = 'qr-card';
+    card.innerHTML = `
+      <div class="qr-shop-name">${shopName}</div>
+      <div class="qr-table-num">BÀN ${t}</div>
+      <canvas></canvas>
+      <div class="qr-cta">📱 Scan để đặt món tại bàn</div>
+    `;
+    grid.appendChild(card);
+    QRCode.toCanvas(card.querySelector('canvas'), url, { width: 180, margin: 1, color: { dark: '#15803d', light: '#ffffff' } });
+  }
+}
+window.addEventListener('DOMContentLoaded', generate);
+</script>
+</body>
+</html>
