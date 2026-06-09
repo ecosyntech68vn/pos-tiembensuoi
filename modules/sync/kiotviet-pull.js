@@ -11,12 +11,32 @@
   const STORAGE_LOG = 'ecosyntech-pos.kiotviet-log';
   const LOG_MAX = 50;
 
+  function obfuscate(s) {
+    if (!s) return '';
+    let out = '';
+    const k = 'ecosyntech-pos-v2';
+    for (let i = 0; i < s.length; i++) out += String.fromCharCode(s.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+    return btoa(out);
+  }
+  function deobfuscate(b64) {
+    if (!b64) return '';
+    try {
+      const s = atob(b64);
+      let out = '';
+      const k = 'ecosyntech-pos-v2';
+      for (let i = 0; i < s.length; i++) out += String.fromCharCode(s.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+      return out;
+    } catch (e) { return ''; }
+  }
+
   function getConfig() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_CFG) || '{}'); }
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_CFG) || '{}'); }
     catch (e) { return {}; }
   }
   function setConfig(cfg) {
-    localStorage.setItem(STORAGE_CFG, JSON.stringify(cfg || {}));
+    const safe = { ...cfg };
+    if (safe.pull_api_key) safe.pull_api_key = obfuscate(safe.pull_api_key);
+    sessionStorage.setItem(STORAGE_CFG, JSON.stringify(safe || {}));
   }
   function getLastTs() {
     return parseInt(localStorage.getItem(STORAGE_LAST) || '0', 10) || 0;
@@ -97,7 +117,7 @@
     const params = new URLSearchParams({
       action: 'kiotviet-pull',
       shopId: cfg.shop_id,
-      apiKey: cfg.pull_api_key,
+      auth: deobfuscate(cfg.pull_api_key),
       since: String(since),
       limit: '50',
     });

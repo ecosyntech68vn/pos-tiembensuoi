@@ -101,6 +101,10 @@
     return isNaN(n) ? 0 : Math.round(n);
   }
 
+  function sanitize(str) {
+    return String(str || '').replace(/[<>]/g, '').slice(0, 255);
+  }
+
   /** Convert raw rows (objects keyed by header) → normalized orders. */
   function normalize(objects, preset, columnMap) {
     const norm = [];
@@ -110,17 +114,17 @@
         return col ? row[col] : '';
       };
       norm.push({
-        order_no: String(get('order_no') || '').trim(),
+        order_no: String(get('order_no') || '').trim().slice(0, 50),
         created_at: parseDate(get('created_at'), preset.date_formats),
-        customer: String(get('customer') || '').trim(),
-        product_name: String(get('product_name') || '').trim(),
-        qty: parseInt(get('qty'), 10) || 1,
+        customer: sanitize(get('customer')),
+        product_name: sanitize(get('product_name')),
+        qty: Math.min(parseInt(get('qty'), 10) || 1, 9999),
         unit_price: parseVND(get('unit_price')),
         line_total: parseVND(get('line_total')),
         discount: parseVND(get('discount')),
         total: parseVND(get('total')),
-        payment_method_raw: String(get('payment_method') || '').trim(),
-        note: String(get('note') || '').trim(),
+        payment_method_raw: String(get('payment_method') || '').trim().slice(0, 30),
+        note: sanitize(get('note')).slice(0, 500),
       });
     });
     return norm;

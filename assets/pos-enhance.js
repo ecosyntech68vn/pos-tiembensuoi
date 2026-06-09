@@ -114,6 +114,8 @@
     if (tryPatch()) clearInterval(patchTimer);
   }, 400);
 
-  // Inject UI: retry mỗi 800ms — cần đợi user click "POS Bán hàng" thì header mới xuất hiện
-  setInterval(tryInjectUI, 800);
+  // Inject UI: retry mỗi 800ms — dừng sau khi inject thành công
+  const uiTimer = setInterval(function () {
+    if (tryInjectUI()) clearInterval(uiTimer);
+  }, 800);
 })();

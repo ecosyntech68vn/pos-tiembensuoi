@@ -125,7 +125,9 @@
         return Math.round(this.subtotal * rate);
       },
       get total() {
-        return Math.max(0, this.subtotal + this.tax - (parseInt(this.discount, 10) || 0));
+        const raw = Math.max(0, this.subtotal + this.tax - (parseInt(this.discount, 10) || 0));
+        const roundTo = (global.__SHOP_ROUND_TO__ || 0);
+        return roundTo > 0 ? Math.round(raw / roundTo) * roundTo : raw;
       },
       get count() {
         return this.items.reduce((n, it) => n + (it.qty || 0), 0);

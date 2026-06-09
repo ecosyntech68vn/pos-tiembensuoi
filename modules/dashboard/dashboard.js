@@ -6,6 +6,16 @@
 (function (global) {
   'use strict';
 
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function pctChange(now, prev) {
     if (!prev) return now > 0 ? 100 : 0;
     return Math.round(((now - prev) / prev) * 100);
@@ -68,7 +78,7 @@
       const xLabels = series.map((s, i) => {
         if (i % 5 !== 0 && i !== series.length - 1) return '';
         const x = pad.left + i * stepX;
-        return `<text x="${x}" y="${h - 8}" text-anchor="middle" font-size="9" fill="#6b7280">${s.date_label}</text>`;
+        return `<text x="${x}" y="${h - 8}" text-anchor="middle" font-size="9" fill="#6b7280">${escapeHtml(s.date_label)}</text>`;
       }).join('');
 
       const yMax = maxV.toLocaleString('vi-VN');
@@ -105,7 +115,7 @@
       const bars = items.map((it, i) => {
         const y = i * (barH + gap) + 5;
         const widthPx = Math.max(2, (it.qty / maxQty) * innerW);
-        const name = (it.product_name || '').slice(0, 24);
+        const name = escapeHtml(it.product_name || '').slice(0, 24);
         return `
           <text x="0" y="${y + barH * 0.7}" font-size="11" fill="#111827">${name}</text>
           <rect x="${labelW}" y="${y}" width="${widthPx}" height="${barH}" fill="#16a34a" rx="3"/>

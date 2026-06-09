@@ -498,7 +498,7 @@
           try {
             this.bc = new BroadcastChannel('ecosyntech-pos');
             this.bc.onmessage = (ev) => {
-              if (ev.data?.type === 'order_paid' && ev.data.order_id === this.lastOrderId) {
+              if (ev.data?.type === 'order_paid' && ev.data.order_id === this.lastOrderId && ev.data?.origin === window.location.origin) {
                 this.onAutoPaid();
               }
             };
@@ -585,7 +585,7 @@
           if (!this.lastOrderId) return;
           Models.markOrderPaid(this.lastOrderId, 'transfer');
           // Broadcast to POS chính
-          try { this.bc?.postMessage({ type: 'order_paid', order_no: this.lastOrderNo, order_id: this.lastOrderId }); } catch (e) {}
+          try { this.bc?.postMessage({ type: 'order_paid', order_no: this.lastOrderNo, order_id: this.lastOrderId, source: 'kiosk', origin: window.location.origin }); } catch (e) {}
           this.onAutoPaid();
         },
         closeSuccess() {
@@ -624,7 +624,7 @@
               const txId = match.id || match.reference_number || ('SEPAY-' + Date.now());
               Models.markOrderPaidBySepay(order.id, txId);
               // Broadcast
-              try { this.bc?.postMessage({ type: 'order_paid', order_no: order.order_no, order_id: order.id }); } catch (e) {}
+              try { this.bc?.postMessage({ type: 'order_paid', order_no: order.order_no, order_id: order.id, source: 'kiosk', origin: window.location.origin }); } catch (e) {}
               this.onAutoPaid();
             }
           } catch (e) { console.warn('[kiosk-sepay]', e.message); }

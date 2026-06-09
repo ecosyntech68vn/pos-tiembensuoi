@@ -8,12 +8,32 @@
 
   const STORAGE_KEY = 'ecosyntech-pos.gas-config';
 
+  function obfuscate(s) {
+    if (!s) return '';
+    let out = '';
+    const k = 'ecosyntech-pos-v2';
+    for (let i = 0; i < s.length; i++) out += String.fromCharCode(s.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+    return btoa(out);
+  }
+  function deobfuscate(b64) {
+    if (!b64) return '';
+    try {
+      const s = atob(b64);
+      let out = '';
+      const k = 'ecosyntech-pos-v2';
+      for (let i = 0; i < s.length; i++) out += String.fromCharCode(s.charCodeAt(i) ^ k.charCodeAt(i % k.length));
+      return out;
+    } catch (e) { return ''; }
+  }
+
   function getConfig() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
+    try { return JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '{}'); }
     catch (e) { return {}; }
   }
   function setConfig(cfg) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg || {}));
+    const safe = { ...cfg };
+    if (safe.api_key) safe.api_key = obfuscate(safe.api_key);
+    sessionStorage.setItem(STORAGE_KEY, JSON.stringify(safe || {}));
   }
 
   async function ping() {
@@ -32,7 +52,7 @@
     if (!cfg.url) throw new Error('GAS URL chưa cấu hình');
     const payload = {
       action: 'push_orders',
-      api_key: cfg.api_key || '',
+      api_key: deobfuscate(cfg.api_key) || '',
       branch_id: cfg.branch_id || 1,
       orders,
       ts: Date.now(),

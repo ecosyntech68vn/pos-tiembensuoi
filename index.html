@@ -2032,6 +2032,8 @@
             this.bootMsg = 'Đang nạp menu...';
             this.shop = Models.getShop();
             this.vatPct = this.shop?.tax_rate || 0;
+            global.__SHOP_TAX_RATE__ = this.vatPct / 100;
+            global.__SHOP_ROUND_TO__ = this.shop?.round_to || 0;
             this.payment = {
               bank_bin: this.shop?.payment_bank_bin || '',
               account_no: this.shop?.payment_account_no || '',
@@ -2060,10 +2062,10 @@
             try {
               this.bc = new BroadcastChannel('ecosyntech-pos');
               this.bc.onmessage = async (ev) => {
-                if (ev.data?.type === 'order_paid') {
+                if (ev.data?.type === 'order_paid' && ev.data?.source === 'pos' && ev.data?.origin === window.location.origin) {
                   await DB.reload();
                   this.loadKitchen(); this.loadOrders(); this.refreshDashboard();
-                  this.showToast('💚 Đơn ' + (ev.data.order_no || '') + ' đã thanh toán');
+                  this.showToast('Đơn ' + (ev.data.order_no || '') + ' đã thanh toán');
                   this.ringBell();
                 }
               };
@@ -2110,11 +2112,29 @@
         },
 
         // ---- LOGIN ----
+        loginFailCount: 0,
+        loginLockoutUntil: 0,
         pressPin(d) { if (this.pin.length < 4) this.pin += d; this.loginError = ''; },
         async submitPin() {
           if (this.pin.length !== 4) return;
+          // Brute-force protection: lockout after 5 failures
+          const now = Date.now();
+          if (this.loginFailCount >= 5 && now < this.loginLockoutUntil) {
+            const wait = Math.ceil((this.loginLockoutUntil - now) / 1000);
+            this.loginError = `Quá nhiều lần sai. Thử lại sau ${wait}s`;
+            this.pin = '';
+            return;
+          }
           const u = await Models.authPin(this.pin, this.shop.id);
-          if (!u) { this.loginError = 'PIN không đúng'; this.pin = ''; return; }
+          if (!u) {
+            this.loginFailCount++;
+            this.loginLockoutUntil = now + Math.min(30000 * Math.pow(2, this.loginFailCount - 5), 300000);
+            this.loginError = 'PIN không đúng';
+            this.pin = '';
+            return;
+          }
+          this.loginFailCount = 0;
+          this.loginLockoutUntil = 0;
           Session.set(u);
           this.user = u;
           // V2.5.1: check first-run PIN BEFORE clear this.pin (need to inspect raw PIN)
@@ -2130,7 +2150,12 @@
             setTimeout(() => this.tourStep = 1, 600);
           }
         },
-        logout() { Session.clear(); this.user = null; },
+        logout() {
+          if (this.sepayPollTimer) { clearInterval(this.sepayPollTimer); this.sepayPollTimer = null; }
+          if (this.kitchenPollTimer) { clearInterval(this.kitchenPollTimer); this.kitchenPollTimer = null; }
+          KiotVietPull.stopPolling();
+          Session.clear(); this.user = null;
+        },
 
         autoLogoutTimer: null,
         startAutoLogout() {
@@ -2263,6 +2288,11 @@
           const total = this.cart.total(this.vatPct);
           if (this.checkout.method === 'cash' && (this.checkout.cash || 0) < total) {
             this.showToast('Khách đưa thiếu tiền'); return;
+          }
+          const maxDiscountWithoutOwner = window.BUSINESS_RULES?.max_discount_without_owner || 20000;
+          if (this.user.role !== 'owner' && this.cart.discount > maxDiscountWithoutOwner) {
+            this.showToast('Giảm giá tối đa ' + Utils.formatVND(maxDiscountWithoutOwner) + ' — cần chủ quán duyệt');
+            return;
           }
           try {
             const items = this.cart.items.map(i => ({ ...i }));
@@ -2598,7 +2628,7 @@
                 this.showToast('💚 Đơn ' + order.order_no + ' auto-confirm ' + this.formatVND(order.total));
                 this.ringBell();
                 // Broadcast to other tabs (Kiosk)
-                try { this.bc?.postMessage({ type: 'order_paid', order_no: order.order_no, order_id: order.id }); } catch (e) {}
+                try { this.bc?.postMessage({ type: 'order_paid', order_no: order.order_no, order_id: order.id, source: 'pos', origin: window.location.origin }); } catch (e) {}
                 // Telegram notify (non-blocking)
                 if (this.tg2.enabled && this.tg2.bot_token && this.tg2.chat_id) {
                   TelegramBot.notifyOrderPaid(this.shop, Models.getOrderById(order.id), match).catch(() => {});
@@ -2692,6 +2722,8 @@
             round_to: this.shop.round_to || 1000, license_to: this.shop.license_to || '',
           });
           this.vatPct = this.shop.tax_rate || 0;
+          global.__SHOP_TAX_RATE__ = this.vatPct / 100;
+          global.__SHOP_ROUND_TO__ = this.shop.round_to || 0;
           this.showToast('Đã lưu thông tin quán');
         },
         uploadLogo(ev) {
@@ -2774,18 +2806,14 @@
          * Nếu chưa đổi PIN (flag pin_changed=true) và đang dùng PIN mặc định 1234 → force modal.
          */
         checkFirstRunPin(loggedUser) {
-          // Chỉ áp dụng cho chủ quán, chỉ khi đang dùng PIN mặc định
           if (loggedUser.role !== 'owner') return false;
           const pinChanged = localStorage.getItem('eco_pin_changed_' + this.shop.id) === '1';
           if (pinChanged) return false;
-          // Demo mode: cho phép skip
           if (this.isDemoMode) return false;
-          // Nếu user vừa nhập PIN = 1234 (mặc định) → force đổi
-          if (this.pin === '1234') {
+          if (this.pin === '1234' || this.pin === '5678') {
             this.firstRunPinModal = true;
             return true;
           }
-          // Đã PIN khác mặc định → set flag và bỏ qua
           localStorage.setItem('eco_pin_changed_' + this.shop.id, '1');
           return false;
         },
@@ -3001,10 +3029,21 @@
         impUpload(ev) {
           const f = ev.target.files[0]; if (!f) return;
           this.impMsg = 'Đang đọc file...';
+          // Validate file size (max 5MB)
+          if (f.size > 5 * 1024 * 1024) {
+            this.impMsg = 'File quá lớn (tối đa 5MB)';
+            return;
+          }
           const r = new FileReader();
           r.onload = async () => {
             try {
               const text = r.result;
+              // Validate row count (max 10,000)
+              const lineCount = text.split(/\r?\n/).filter(l => l.trim()).length - 1;
+              if (lineCount > 10000) {
+                this.impMsg = 'Quá nhiều dòng (tối đa 10,000)';
+                return;
+              }
               const rows2D = CSVParser.parseCSV(text);
               const { headers, objects } = CSVParser.rowsToObjects(rows2D);
               this.impHeaders = headers; this.impRows = objects;

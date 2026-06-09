@@ -67,18 +67,47 @@
   // when blob FULLY written to disk, not just queued).
   let persistTimer = null;
   let persistInFlight = null;  // Promise — caller can await to ensure write done.
+  const PERSIST_LOCK_KEY = 'ecosyntech-pos.persist-lock';
+  const PERSIST_VER_KEY = 'ecosyntech-pos.persist-version';
+  function acquireLock() {
+    const lockTs = Date.now().toString();
+    const existing = localStorage.getItem(PERSIST_LOCK_KEY);
+    if (existing && (Date.now() - parseInt(existing, 10)) < 3000) return null;
+    localStorage.setItem(PERSIST_LOCK_KEY, lockTs);
+    return lockTs;
+  }
+  function releaseLock(lock) {
+    if (lock && localStorage.getItem(PERSIST_LOCK_KEY) === lock) {
+      localStorage.removeItem(PERSIST_LOCK_KEY);
+    }
+  }
+  function getVersion() {
+    return parseInt(localStorage.getItem(PERSIST_VER_KEY) || '0', 10);
+  }
+  function nextVersion() {
+    const v = getVersion() + 1;
+    localStorage.setItem(PERSIST_VER_KEY, String(v));
+    return v;
+  }
   function schedulePersist(ms) {
     clearTimeout(persistTimer);
     persistTimer = setTimeout(() => persist().catch((e) => console.error('[db] persist', e)), ms || 200);
   }
   async function persist() {
     if (!db) return;
-    // If a persist is in-flight, wait for it before starting next (avoid concurrent writes)
     if (persistInFlight) { try { await persistInFlight; } catch (e) {} }
-    const data = db.export();
-    persistInFlight = idbPut(data).finally(() => { persistInFlight = null; });
-    await persistInFlight;
-    EventBus.emit('db:persisted', { size: data.length });
+    const lock = acquireLock();
+    if (!lock) { schedulePersist(500); return; }
+    try {
+      const currentVer = getVersion();
+      const data = db.export();
+      persistInFlight = idbPut(data).finally(() => { persistInFlight = null; });
+      await persistInFlight;
+      nextVersion();
+      EventBus.emit('db:persisted', { size: data.length });
+    } finally {
+      releaseLock(lock);
+    }
   }
   /** Force flush — await this before navigating away to ensure DB safely written. */
   async function flush() {
@@ -194,9 +223,9 @@
         [t.bot_token || null, t.chat_id || null, t.enabled ? 1 : 0, branchId]);
     }
 
-    // Default owner PIN 1234 — user MUST change (cảnh báo ở Settings)
-    const ownerPinValue = preset?.default_pins?.owner || '1234';
-    const staffPinValue = preset?.default_pins?.staff || '5678';
+    // Random PIN on seed — user MUST change on first login
+    const ownerPinValue = preset?.default_pins?.owner || String(1000 + Math.floor(Math.random() * 9000));
+    const staffPinValue = preset?.default_pins?.staff || String(1000 + Math.floor(Math.random() * 9000));
     const ownerPin = await Utils.hashPin(ownerPinValue, branchId);
     db.run("INSERT INTO users (branch_id, name, pin_hash, role, active, created_at) VALUES (?,?,?,?,1,?)",
       [branchId, 'Chủ quán', ownerPin, 'owner', now]);
