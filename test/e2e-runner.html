@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>E2E Test Runner — EcoSynTech POS</title>
+  <link rel="stylesheet" href="../assets/styles.css" />
+  <style>
+    body { padding: 24px; max-width: 980px; margin: 0 auto; }
+    .test-row { display: grid; grid-template-columns: 32px 1fr 80px; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); align-items: start; }
+    .test-row.pass { background: var(--primary-light); }
+    .test-row.fail { background: #fee2e2; }
+    .test-row.skip { background: var(--bg-hover); }
+    .status { font-weight: 700; text-align: right; }
+    .status.pass { color: var(--success); }
+    .status.fail { color: var(--danger); }
+    .status.skip { color: var(--text-tertiary); }
+    .err { font-family: monospace; font-size: 11px; color: var(--danger); white-space: pre-wrap; word-break: break-word; }
+    .det { font-size: 12px; color: var(--text-secondary); }
+    .summary { padding: 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; margin-bottom: 16px; }
+    h1 { margin: 0 0 6px; }
+  </style>
+</head>
+<body>
+  <div class="summary">
+    <h1>E2E Test Runner — EcoSynTech POS</h1>
+    <div class="text-sm text-muted">Chạy logic core trực tiếp. Reset DB sạch trước test. SW unregister + cache busting.</div>
+    <div id="overall" class="mt-3" style="font-weight: 700; font-size: 18px;">Đang khởi tạo...</div>
+    <div id="meta" class="mt-2 text-sm text-muted"></div>
+  </div>
+
+  <div class="card" style="padding: 0;">
+    <div style="padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <h3>Kết quả test</h3>
+      <button class="btn btn-primary btn-sm" id="rerun">Re-run</button>
+    </div>
+    <div id="results"></div>
+  </div>
+
+  <pre id="json" style="margin-top: 16px; padding: 12px; background: #0f172a; color: #f8fafc; font-size: 11px; border-radius: 8px; overflow: auto;"></pre>
+
+  <script>
+  // ============================================================================
+  // Bootstrap: unregister SW + clear caches + dynamically load FRESH modules
+  // ============================================================================
+  const BUST = '?bust=' + Date.now();
+  const BASE = '../';
+
+  async function clearCaches() {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for (const r of regs) await r.unregister();
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        for (const k of keys) await caches.delete(k);
+      }
+    } catch (e) { console.warn('clearCaches:', e); }
+  }
+
+  function loadScript(src) {
+    return new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => res(src);
+      s.onerror = () => rej(new Error('Load fail: ' + src));
+      document.head.appendChild(s);
+    });
+  }
+
+  const SCRIPTS = [
+    'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js',
+    BASE + 'config/business-rules.js' + BUST,
+    BASE + 'config/payment-methods.js' + BUST,
+    BASE + 'config/printer.js' + BUST,
+    BASE + 'config/notification.js' + BUST,
+    BASE + 'modules/core/utils.js' + BUST,
+    BASE + 'modules/core/event-bus.js' + BUST,
+    BASE + 'modules/core/icons.js' + BUST,
+    BASE + 'modules/core/vietqr.js' + BUST,
+    BASE + 'modules/core/sepay.js' + BUST,
+    BASE + 'modules/core/db.js' + BUST,
+    BASE + 'modules/core/models.js' + BUST,
+    BASE + 'modules/auth/session.js' + BUST,
+    BASE + 'modules/auth/permissions.js' + BUST,
+    BASE + 'modules/pos/cart.js' + BUST,
+    BASE + 'modules/dashboard/dashboard.js' + BUST,
+    BASE + 'modules/sync/telegram-bot.js' + BUST,
+  ];
+
+  // ============================================================================
+  // Test harness
+  // ============================================================================
+  const results = [];
+  const $results = document.getElementById('results');
+  const $overall = document.getElementById('overall');
+  const $meta    = document.getElementById('meta');
+  const $json    = document.getElementById('json');
+
+  function escape(s) { return String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
+
+  function render() {
+    $results.innerHTML = '';
+    results.forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'test-row ' + r.status;
+      row.innerHTML = `
+        <div>${i + 1}</div>
+        <div>
+          <div><b>${escape(r.name)}</b></div>
+          ${r.detail ? `<div class="det">${escape(r.detail)}</div>` : ''}
+          ${r.error ? `<div class="err">${escape(r.error)}</div>` : ''}
+        </div>
+        <div class="status ${r.status}">${r.status.toUpperCase()}</div>
+      `;
+      $results.appendChild(row);
+    });
+    const passed = results.filter(r => r.status === 'pass').length;
+    const failed = results.filter(r => r.status === 'fail').length;
+    const skipped = results.filter(r => r.status === 'skip').length;
+    const total = results.length;
+    const score = total > 0 ? Math.round((passed / total) * 100) : 0;
+    $overall.textContent = `${passed}/${total} PASS · ${failed} FAIL · ${skipped} SKIP — Score ${score}%`;
+    $overall.style.color = failed === 0 ? 'var(--success)' : 'var(--danger)';
+    $meta.textContent = `Build: ${navigator.userAgent.match(/Chrome\/[\d.]+/)?.[0] || 'unknown'}`;
+    window.__TEST_RESULT__ = { passed, failed, skipped, total, score, results };
+    $json.textContent = JSON.stringify(window.__TEST_RESULT__, null, 2);
+  }
+  function pass(name, detail) { results.push({ name, status: 'pass', detail: detail || '' }); render(); }
+  function fail(name, error)  { results.push({ name, status: 'fail', error: String(error?.stack || error) }); render(); }
+  function skip(name, reason) { results.push({ name, status: 'skip', detail: reason || '' }); render(); }
+  async function test(name, fn) {
+    try { const d = await fn(); pass(name, d); }
+    catch (e) { fail(name, e); }
+  }
+  function assert(c, msg) { if (!c) throw new Error('Assert: ' + msg); }
+  function assertEq(a, e, m) { if (a !== e) throw new Error(`${m || 'assertEq'}: expected ${e}, got ${a}`); }
+
+  // ============================================================================
+  // Test cases
+  // ============================================================================
+  let shop, ownerUser, testProductId;
+
+  async function runAll() {
+    results.length = 0; render();
+
+    await test('T1. DB init + reset to clean seed', async () => {
+      await DB.init();
+      await DB.resetAll();
+      shop = Models.getShop();
+      assert(shop, 'shop should exist');
+      assert(shop.id > 0, 'shop.id > 0');
+      return `shop="${shop.name}" id=${shop.id}`;
+    });
+
+    await test('T2. Schema v3 columns present', async () => {
+      // DB.exec wrapper returns array of {col_name: value} objects
+      const oc = DB.exec("PRAGMA table_info(orders)").map(r => r.name);
+      const bc = DB.exec("PRAGMA table_info(branches)").map(r => r.name);
+      ['sepay_tx_id','table_number','kitchen_status','order_source','assigned_user_id','payment_qr_url'].forEach(c => assert(oc.includes(c), 'orders.'+c));
+      ['sepay_api_key','sepay_enabled','sepay_polling_seconds','payment_bank_bin','telegram_bot_token','telegram_chat_id'].forEach(c => assert(bc.includes(c), 'branches.'+c));
+      return `orders ${oc.length} cols, branches ${bc.length} cols`;
+    });
+
+    await test('T3. Auth owner PIN 1234', async () => {
+      ownerUser = await Models.authPin('1234', shop.id);
+      assert(ownerUser, 'auth success');
+      assertEq(ownerUser.role, 'owner');
+      return `user="${ownerUser.name}"`;
+    });
+
+    await test('T4. Auth wrong PIN → null', async () => {
+      const u = await Models.authPin('0000', shop.id);
+      assert(!u, 'should be falsy');
+      return 'rejected OK';
+    });
+
+    await test('T5. updateShop name persists', async () => {
+      Models.updateShop({ id: shop.id, name: 'Quán Demo CEO', address: 'Saigon', phone: '0900000000', slogan: '', logo_data_url: null, tax_rate: 0, round_to: 1000, license_to: 'CEO Demo' });
+      const re = Models.getShop();
+      assertEq(re.name, 'Quán Demo CEO');
+      shop = re;
+      return `name="${re.name}"`;
+    });
+
+    await test('T6. Sepay config XOR roundtrip', async () => {
+      Models.updateSepayConfig(shop.id, { api_key: 'TEST_API_KEY_123', enabled: true, polling_seconds: 5 });
+      const re = Models.getShop();
+      const decoded = Models.getSepayApiKey(re);
+      assertEq(decoded, 'TEST_API_KEY_123');
+      assertEq(re.sepay_enabled, 1);
+      shop = re;
+      return 'roundtrip OK';
+    });
+
+    await test('T7. updateTelegramPerShop persists', async () => {
+      Models.updateTelegramPerShop(shop.id, { bot_token: 'BOT123', chat_id: '789', enabled: true });
+      const re = Models.getShop();
+      assertEq(re.telegram_bot_token, 'BOT123');
+      assertEq(re.telegram_chat_id, '789');
+      assertEq(re.telegram_notify_enabled, 1);
+      shop = re;
+      return 'persist OK';
+    });
+
+    await test('T8. Payment QR config (VietQR MBBank)', async () => {
+      Models.updatePayment(shop.id, { bank_bin: '970422', account_no: '0123456789', account_name: 'NGUYEN VAN A', qr_enabled: true });
+      const re = Models.getShop();
+      assertEq(re.payment_bank_bin, '970422');
+      assertEq(re.payment_qr_enabled, 1);
+      shop = re;
+      return 'OK';
+    });
+
+    await test('T9. VietQR.qrUrl builds URL with amount + addInfo', async () => {
+      const url = VietQR.qrUrl({ bank_bin: '970422', account_no: '0123456789', account_name: 'NGUYEN VAN A', amount: 50000, message: 'TEST-001' });
+      assert(url.includes('970422-0123456789'), 'bank+account');
+      assert(url.includes('amount=50000'), 'amount');
+      return url.slice(0, 80) + '...';
+    });
+
+    await test('T10. upsertProduct create new', async () => {
+      const cats = Models.listCategories(shop.id);
+      const catId = cats[0]?.id || 1;
+      testProductId = Models.upsertProduct({ id: null, branch_id: shop.id, category_id: catId, name: 'Test Latte L', base_price: 50000, icon: '☕', active: 1, sort_order: 99 });
+      assert(testProductId > 0, 'id > 0');
+      const prods = Models.listProducts(shop.id);
+      assert(prods.some(p => p.id === testProductId), 'in list');
+      return `id=${testProductId}`;
+    });
+
+    await test('T11. Recipe per variant (S/M/L)', async () => {
+      Models.upsertRecipe(testProductId, 1, 10, 'S');
+      Models.upsertRecipe(testProductId, 1, 15, 'M');
+      Models.upsertRecipe(testProductId, 1, 20, 'L');
+      Models.upsertRecipe(testProductId, 2, 30, 'S');
+      Models.upsertRecipe(testProductId, 2, 50, 'M');
+      Models.upsertRecipe(testProductId, 2, 75, 'L');
+      Models.upsertRecipe(testProductId, 20, 1, null);
+      const recs = Models.listRecipesForProduct(testProductId);
+      assertEq(recs.length, 7, '7 rows');
+      return `${recs.length} rows`;
+    });
+
+    await test('T12. recipeCostForProduct per-line cost', async () => {
+      const cost = Models.recipeCostForProduct(testProductId);
+      assert(cost.total_cost > 0, 'cost > 0');
+      assertEq(cost.lines.length, 7);
+      return `total=${cost.total_cost}đ`;
+    });
+
+    await test('T13. addInventoryTxBatch — nhập 3 NVL', async () => {
+      const before = {
+        ca: Models.listIngredients(shop.id).find(i => i.id === 1).stock_current,
+        sua: Models.listIngredients(shop.id).find(i => i.id === 2).stock_current,
+        ly: Models.listIngredients(shop.id).find(i => i.id === 20).stock_current,
+      };
+      Models.addInventoryTxBatch([
+        { branch_id: shop.id, ingredient_id: 1,  type: 'purchase', qty: 2000, unit_cost: 200, total_cost: 400000, supplier: 'NCC Test', user_id: ownerUser.id },
+        { branch_id: shop.id, ingredient_id: 2,  type: 'purchase', qty: 5000, unit_cost: 50,  total_cost: 250000, supplier: 'NCC Test', user_id: ownerUser.id },
+        { branch_id: shop.id, ingredient_id: 20, type: 'purchase', qty: 100,  unit_cost: 1500, total_cost: 150000, supplier: 'NCC Test', user_id: ownerUser.id },
+      ]);
+      const after = {
+        ca: Models.listIngredients(shop.id).find(i => i.id === 1).stock_current,
+        sua: Models.listIngredients(shop.id).find(i => i.id === 2).stock_current,
+        ly: Models.listIngredients(shop.id).find(i => i.id === 20).stock_current,
+      };
+      assertEq(after.ca - before.ca, 2000);
+      assertEq(after.sua - before.sua, 5000);
+      assertEq(after.ly - before.ly, 100);
+      return `cafe +2000, sua +5000, ly +100`;
+    });
+
+    await test('T14. createOrder POS + auto-deduct (no variant → ly only)', async () => {
+      const items = [{ product_id: testProductId, product_name: 'Test Latte L', variants: [], unit_price: 50000, qty: 1, line_total: 50000 }];
+      const orderData = { branch_id: shop.id, user_id: ownerUser.id, status: 'paid', subtotal: 50000, tax: 0, discount: 0, total: 50000, payment_method: 'cash', cash_received: 50000, change_given: 0, note: 'E2E' };
+      const before_ly = Models.listIngredients(shop.id).find(i => i.id === 20).stock_current;
+      const res = Models.createOrder(orderData, items);
+      assert(res.id > 0);
+      assert(res.deductions);
+      const after_ly = Models.listIngredients(shop.id).find(i => i.id === 20).stock_current;
+      assertEq(after_ly, before_ly - 1, 'ly trừ 1');
+      return `${res.order_no}, ${res.deductions.length} lines`;
+    });
+
+    await test('T15. Kitchen status transitions', async () => {
+      const o0 = Models.listRecentOrders(shop.id, 1)[0];
+      const oid = o0.id;
+      Models.updateKitchenStatus(oid, 'preparing', ownerUser.id);
+      let o = Models.getOrderById(oid);
+      assertEq(o.kitchen_status, 'preparing');
+      assert(o.kitchen_started_at > 0, 'started_at');
+      assertEq(o.assigned_user_id, ownerUser.id);
+      Models.updateKitchenStatus(oid, 'ready', ownerUser.id);
+      o = Models.getOrderById(oid);
+      assertEq(o.kitchen_status, 'ready');
+      assert(o.kitchen_ready_at > 0);
+      Models.updateKitchenStatus(oid, 'served', ownerUser.id);
+      o = Models.getOrderById(oid);
+      assertEq(o.kitchen_status, 'served');
+      return 'pending → preparing → ready → served OK';
+    });
+
+    await test('T16. dailyRevenue counts paid orders', async () => {
+      const stats = Models.dailyRevenue(shop.id, new Date());
+      assert(stats.orders >= 1, '>=1 order');
+      assertEq(stats.revenue, 50000);
+      return `${stats.orders} đơn · ${stats.revenue}đ`;
+    });
+
+    await test('T17. Sepay matchTxToOrder amount+content', async () => {
+      const order = { order_no: '2026-06-08#003', total: 95000 };
+      assert(Sepay.matchTxToOrder({ amount_in: 95000, transaction_content: 'CK 20260608003 nd' }, order), 'positive');
+      assert(!Sepay.matchTxToOrder({ amount_in: 50000, transaction_content: '20260608003' }, order), 'wrong amount');
+      assert(!Sepay.matchTxToOrder({ amount_in: 95000, transaction_content: 'KHAC' }, order), 'wrong content');
+      return '3/3 OK';
+    });
+
+    await test('T18. markOrderPaidBySepay idempotent', async () => {
+      const recent = Models.listRecentOrders(shop.id, 5);
+      const order = recent[0];
+      DB.run("UPDATE orders SET status='pending', sepay_tx_id=NULL WHERE id=?", [order.id]);
+      Models.markOrderPaidBySepay(order.id, 'TX_AAA');
+      let o = Models.getOrderById(order.id);
+      assertEq(o.status, 'paid');
+      assertEq(o.sepay_tx_id, 'TX_AAA');
+      // Try again with different tx
+      Models.markOrderPaidBySepay(order.id, 'TX_BBB');
+      o = Models.getOrderById(order.id);
+      assertEq(o.sepay_tx_id, 'TX_AAA', 'guard preserved');
+      return 'idempotent OK';
+    });
+
+    await test('T19. BroadcastChannel supported', async () => {
+      assert(typeof BroadcastChannel !== 'undefined');
+      const bc = new BroadcastChannel('ecosyntech-pos-test');
+      bc.close();
+      return 'BC OK';
+    });
+
+    await test('T20. DB.reload re-reads from IndexedDB', async () => {
+      const before = Models.listRecentOrders(shop.id, 1)[0].id;
+      await DB.persist();
+      const ok = await DB.reload();
+      assert(ok, 'reload true');
+      const after = Models.listRecentOrders(shop.id, 1)[0].id;
+      assertEq(after, before);
+      return 'reload OK';
+    });
+
+    await test('T21. TelegramBot.sendForShop disabled → null', async () => {
+      const re = await TelegramBot.sendForShop({ telegram_notify_enabled: 0 }, 'test');
+      assertEq(re, null);
+      return 'null OK';
+    });
+
+    await test('T22. Cart math', async () => {
+      const c = window.makeCart();
+      const p = { id: 1, name: 'Mock', base_price: 30000, icon: '☕' };
+      c.addProduct(p, []); c.addProduct(p, []);
+      assertEq(c.count(), 2);
+      assertEq(c.subtotal(), 60000);
+      assertEq(c.tax(10), 6000);
+      c.discount = 5000;
+      assertEq(c.total(10), 61000);
+      return 'math OK';
+    });
+
+    await test('T23. Dashboard.snapshot full shape', async () => {
+      const snap = Dashboard.snapshot(shop.id);
+      assert('today' in snap, 'today');
+      assert('last7' in snap, 'last7');
+      assert('profit30' in snap, 'profit30');
+      assert(Array.isArray(snap.lowStock));
+      assert(Array.isArray(snap.anomalies));
+      return `today ${snap.today.revenue}đ, lowStock ${snap.lowStock.length}`;
+    });
+
+    await test('T24. createOrder table_number + order_source (Kiosk sim)', async () => {
+      const items = [{ product_id: testProductId, product_name: 'Test Latte L', variants: [], unit_price: 50000, qty: 1, line_total: 50000 }];
+      const res = Models.createOrder({
+        branch_id: shop.id, user_id: null, status: 'pending',
+        subtotal: 50000, tax: 0, discount: 0, total: 50000,
+        payment_method: 'transfer', note: '[KIOSK]',
+        table_number: 5, order_source: 'self_order', kitchen_status: 'pending',
+      }, items);
+      const o = Models.getOrderById(res.id);
+      assertEq(o.table_number, 5);
+      assertEq(o.order_source, 'self_order');
+      assertEq(o.kitchen_status, 'pending');
+      assertEq(o.status, 'pending');
+      return `${res.order_no}, table=5`;
+    });
+
+    await test('T25. listKitchenOrdersByStatus("pending") includes Kiosk', async () => {
+      const pending = Models.listKitchenOrdersByStatus(shop.id, 'pending');
+      assert(pending.length >= 1, 'has pending');
+      const kiosk = pending.find(o => o.table_number === 5);
+      assert(kiosk, 'Kiosk order present');
+      return `${pending.length} pending`;
+    });
+
+    await test('T26. aggregateDeductions groups by ingredient', async () => {
+      const ded = [
+        { ingredient_id: 1, ingredient_name: 'Cà phê', unit: 'g', qty: 10, product_name: 'A' },
+        { ingredient_id: 1, ingredient_name: 'Cà phê', unit: 'g', qty: 15, product_name: 'B' },
+        { ingredient_id: 2, ingredient_name: 'Sữa', unit: 'ml', qty: 50, product_name: 'A' },
+      ];
+      const agg = Models.aggregateDeductions(ded);
+      assertEq(agg.length, 2);
+      const cafe = agg.find(a => a.ingredient_id === 1);
+      assertEq(cafe.qty, 25);
+      assertEq(cafe.products.length, 2);
+      return 'aggregate OK';
+    });
+
+    await test('T27. updateKitchenStatus order untouched if invalid order_id', async () => {
+      // Just ensure no crash with bogus id
+      try { Models.updateKitchenStatus(999999, 'preparing', ownerUser.id); pass; }
+      catch (e) { throw e; }
+      return 'no crash on missing order';
+    });
+
+    render();
+    return window.__TEST_RESULT__;
+  }
+
+  document.getElementById('rerun').addEventListener('click', () => runAll());
+
+  // ============================================================================
+  // Bootstrap
+  // ============================================================================
+  (async () => {
+    $overall.textContent = 'Clearing SW cache + loading fresh scripts...';
+    await clearCaches();
+    try {
+      for (const src of SCRIPTS) await loadScript(src);
+    } catch (e) {
+      $overall.textContent = 'Script load fail: ' + e.message;
+      return;
+    }
+    $overall.textContent = 'Running tests...';
+    await runAll();
+  })();
+  </script>
+</body>
+</html>

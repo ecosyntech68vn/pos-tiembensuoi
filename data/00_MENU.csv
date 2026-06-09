@@ -1,0 +1,188 @@
+item_code,name_vn,category_main,category_sub,size,volume_ml,price_sell_vnd,status,note
+DR-TH-001-M,Trà chanh,Drinks,Trà hoa quả,M,500,15000,ACTIVE,Best seller
+DR-TH-001-L,Trà chanh,Drinks,Trà hoa quả,L,700,20000,ACTIVE,
+DR-TH-002-M,Trà chanh/quất truyền thống,Drinks,Trà hoa quả,M,500,15000,ACTIVE,Đổi chanh sang quất
+DR-TH-002-L,Trà chanh/quất truyền thống,Drinks,Trà hoa quả,L,700,20000,ACTIVE,
+DR-TH-003-M,Trà chanh leo,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-003-L,Trà chanh leo,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-004-M,Trà chanh dứa,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-004-L,Trà chanh dứa,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-005-M,Trà chanh sả,Drinks,Trà hoa quả,M,500,25000,ACTIVE,Giã 2 củ sả
+DR-TH-005-L,Trà chanh sả,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-006-M,Trà chanh xí muội,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-006-L,Trà chanh xí muội,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-007-M,Trà chanh đào,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-007-L,Trà chanh đào,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-008-M,Trà chanh việt quất,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-008-L,Trà chanh việt quất,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-009-M,Trà chanh bạc hà,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-009-L,Trà chanh bạc hà,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-010-M,Trà xoài chanh leo,Drinks,Trà hoa quả,M,500,30000,ACTIVE,
+DR-TH-010-L,Trà xoài chanh leo,Drinks,Trà hoa quả,L,700,35000,ACTIVE,
+DR-TH-011-M,Trà hoa quả nhiệt đới,Drinks,Trà hoa quả,M,500,30000,ACTIVE,Cam + quất + dưa hấu
+DR-TH-011-L,Trà hoa quả nhiệt đới,Drinks,Trà hoa quả,L,700,35000,ACTIVE,
+DR-TH-012-M,Trà đào,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-012-L,Trà đào,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-013-M,Trà táo xanh bạc hà,Drinks,Trà hoa quả,M,500,30000,ACTIVE,
+DR-TH-013-L,Trà táo xanh bạc hà,Drinks,Trà hoa quả,L,700,35000,ACTIVE,
+DR-TH-014-M,Trà cam mật ong,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-014-L,Trà cam mật ong,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-015-M,Trà dưa hấu nhiệt đới,Drinks,Trà hoa quả,M,500,30000,ACTIVE,
+DR-TH-015-L,Trà dưa hấu nhiệt đới,Drinks,Trà hoa quả,L,700,35000,ACTIVE,
+DR-TH-016-M,Nước ép vải đào,Drinks,Trà hoa quả,M,500,25000,ACTIVE,
+DR-TH-016-L,Nước ép vải đào,Drinks,Trà hoa quả,L,700,30000,ACTIVE,
+DR-TH-017,Nước cam,Drinks,Trà hoa quả,M,500,30000,ACTIVE,Single size
+DR-TH-018,Nước chanh leo,Drinks,Trà hoa quả,M,500,25000,ACTIVE,Single size
+DR-TH-019,Nước ép dưa hấu,Drinks,Trà hoa quả,M,500,30000,ACTIVE,Single size
+DR-TH-020-M,Trà gừng cam sả,Drinks,Trà hoa quả,M,500,30000,ACTIVE,Có thể uống nóng
+DR-TH-020-L,Trà gừng cam sả,Drinks,Trà hoa quả,L,700,35000,ACTIVE,
+DR-TH-021-M,Cacao/socola nóng,Drinks,Trà hoa quả,M,300,25000,ACTIVE,Đồ uống nóng
+DR-TH-021-L,Cacao/socola nóng,Drinks,Trà hoa quả,L,500,30000,ACTIVE,
+DR-TS-001-M,Trà sữa khoai môn,Drinks,Trà sữa,M,500,27000,ACTIVE,Pha bằng bột
+DR-TS-001-L,Trà sữa khoai môn,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-002-M,Trà sữa nguyên vị,Drinks,Trà sữa,M,500,27000,ACTIVE,Truyền thống
+DR-TS-002-L,Trà sữa nguyên vị,Drinks,Trà sữa,L,700,32000,ACTIVE,
+DR-TS-003-M,Trà sữa đào,Drinks,Trà sữa,M,500,30000,ACTIVE,Pha bằng siro/mứt
+DR-TS-003-L,Trà sữa đào,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-004-M,Trà sữa socola,Drinks,Trà sữa,M,500,30000,ACTIVE,Dùng sữa đặc
+DR-TS-004-L,Trà sữa socola,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-005-M,Trà sữa cacao,Drinks,Trà sữa,M,500,30000,ACTIVE,Dùng sữa đặc
+DR-TS-005-L,Trà sữa cacao,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-006-M,Trà sữa việt quất,Drinks,Trà sữa,M,500,30000,ACTIVE,Pha bằng mứt
+DR-TS-006-L,Trà sữa việt quất,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-007-M,Trà sữa matcha,Drinks,Trà sữa,M,500,30000,ACTIVE,Hồng trà + bột matcha
+DR-TS-007-L,Trà sữa matcha,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-008-M,Trà sữa cappuccino,Drinks,Trà sữa,M,500,30000,ACTIVE,Dùng sữa đặc + bột
+DR-TS-008-L,Trà sữa cappuccino,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-009-M,Trà sữa đậu đỏ,Drinks,Trà sữa,M,500,30000,ACTIVE,
+DR-TS-009-L,Trà sữa đậu đỏ,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-010-M,Trà sữa vani,Drinks,Trà sữa,M,500,30000,ACTIVE,Hồng trà + siro
+DR-TS-010-L,Trà sữa vani,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-011-M,Trà sữa dưa gang,Drinks,Trà sữa,M,500,30000,ACTIVE,Pha bằng mứt
+DR-TS-011-L,Trà sữa dưa gang,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-012-M,Trà sữa hoa xoài,Drinks,Trà sữa,M,500,30000,ACTIVE,Pha bằng mứt
+DR-TS-012-L,Trà sữa hoa xoài,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-013-M,Trà nhài sữa,Drinks,Trà sữa,M,500,27000,ACTIVE,Truyền thống
+DR-TS-013-L,Trà nhài sữa,Drinks,Trà sữa,L,700,32000,ACTIVE,
+DR-TS-014-M,Hồng trà sữa,Drinks,Trà sữa,M,500,30000,ACTIVE,Truyền thống
+DR-TS-014-L,Hồng trà sữa,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-015-M,Trà sữa táo xanh bạc hà,Drinks,Trà sữa,M,500,30000,ACTIVE,Mix vị
+DR-TS-015-L,Trà sữa táo xanh bạc hà,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-016-M,Trà sữa cacao bạc hà,Drinks,Trà sữa,M,500,30000,ACTIVE,Mix vị
+DR-TS-016-L,Trà sữa cacao bạc hà,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-TS-017-M,Trà sữa bạc hà việt quất,Drinks,Trà sữa,M,500,30000,ACTIVE,Mix vị
+DR-TS-017-L,Trà sữa bạc hà việt quất,Drinks,Trà sữa,L,700,35000,ACTIVE,
+DR-BS-001-M,Sữa tươi trân châu đường đen,Drinks,Best Seller,M,500,30000,ACTIVE,Không dùng trà
+DR-BS-001-L,Sữa tươi trân châu đường đen,Drinks,Best Seller,L,700,35000,ACTIVE,
+DR-BS-002-M,Trà sữa trân châu đường đen,Drinks,Best Seller,M,500,30000,ACTIVE,Cốt = hồng trà sữa
+DR-BS-002-L,Trà sữa trân châu đường đen,Drinks,Best Seller,L,700,35000,ACTIVE,
+DR-BS-003-M,Sữa tươi TC đường đen kem mây,Drinks,Best Seller,M,500,30000,ACTIVE,Kem mây phủ
+DR-BS-003-L,Sữa tươi TC đường đen kem mây,Drinks,Best Seller,L,700,40000,ACTIVE,
+DR-BS-004-M,Trà sữa TC đường đen kem mây,Drinks,Best Seller,M,500,30000,ACTIVE,
+DR-BS-004-L,Trà sữa TC đường đen kem mây,Drinks,Best Seller,L,700,40000,ACTIVE,
+DR-BS-005-M,Kem trứng sữa lạnh,Drinks,Best Seller,M,500,30000,ACTIVE,Pha lạnh
+DR-BS-005-L,Kem trứng sữa lạnh,Drinks,Best Seller,L,700,35000,ACTIVE,
+DR-BS-006-M,Kem trứng sữa nóng,Drinks,Best Seller,M,300,30000,ACTIVE,Pha nóng
+DR-BS-006-L,Kem trứng sữa nóng,Drinks,Best Seller,L,500,35000,ACTIVE,
+DR-BS-007-M,Xoài dừa cốt tuyết,Drinks,Best Seller,M,500,30000,ACTIVE,
+DR-BS-007-L,Xoài dừa cốt tuyết,Drinks,Best Seller,L,700,35000,ACTIVE,
+DR-BS-008-M,Trà sen vàng,Drinks,Best Seller,M,500,30000,ACTIVE,Kem mặn
+DR-BS-008-L,Trà sen vàng,Drinks,Best Seller,L,700,35000,ACTIVE,
+DR-BS-009-M,Trà thạch đào,Drinks,Best Seller,M,500,30000,ACTIVE,Đánh kem rich
+DR-BS-009-L,Trà thạch đào,Drinks,Best Seller,L,700,35000,ACTIVE,
+DR-TK-001-M,Trà sữa matcha kem cheese,Drinks,Trà kem cheese,M,500,30000,ACTIVE,
+DR-TK-001-L,Trà sữa matcha kem cheese,Drinks,Trà kem cheese,L,700,35000,ACTIVE,
+DR-TK-002-M,Trà socola kem cheese,Drinks,Trà kem cheese,M,500,30000,ACTIVE,
+DR-TK-002-L,Trà socola kem cheese,Drinks,Trà kem cheese,L,700,35000,ACTIVE,
+DR-TK-003-M,Trà cappuccino kem cheese,Drinks,Trà kem cheese,M,500,30000,ACTIVE,
+DR-TK-003-L,Trà cappuccino kem cheese,Drinks,Trà kem cheese,L,700,35000,ACTIVE,
+DR-TK-004-M,Trà cacao kem cheese,Drinks,Trà kem cheese,M,500,30000,ACTIVE,
+DR-TK-004-L,Trà cacao kem cheese,Drinks,Trà kem cheese,L,700,35000,ACTIVE,
+DR-TK-005-M,Trà nhài kem cheese,Drinks,Trà kem cheese,M,500,30000,ACTIVE,
+DR-TK-005-L,Trà nhài kem cheese,Drinks,Trà kem cheese,L,700,35000,ACTIVE,
+DR-TK-006-M,Hồng trà kem cheese,Drinks,Trà kem cheese,M,500,30000,ACTIVE,
+DR-TK-006-L,Hồng trà kem cheese,Drinks,Trà kem cheese,L,700,35000,ACTIVE,
+DR-SC-001-M,Sữa chua việt quất,Drinks,Sữa chua,M,500,25000,ACTIVE,
+DR-SC-001-L,Sữa chua việt quất,Drinks,Sữa chua,L,700,30000,ACTIVE,
+DR-SC-002-M,Sữa chua bơ,Drinks,Sữa chua,M,500,25000,ACTIVE,Theo mùa
+DR-SC-002-L,Sữa chua bơ,Drinks,Sữa chua,L,700,30000,ACTIVE,
+DR-SC-003-M,Sữa chua dâu,Drinks,Sữa chua,M,500,25000,ACTIVE,
+DR-SC-003-L,Sữa chua dâu,Drinks,Sữa chua,L,700,30000,ACTIVE,
+DR-SC-004-M,Sữa chua mít,Drinks,Sữa chua,M,500,25000,ACTIVE,
+DR-SC-004-L,Sữa chua mít,Drinks,Sữa chua,L,700,30000,ACTIVE,
+DR-SC-005-M,Sữa chua đào,Drinks,Sữa chua,M,500,25000,ACTIVE,
+DR-SC-005-L,Sữa chua đào,Drinks,Sữa chua,L,700,30000,ACTIVE,
+DR-SC-006-M,Sữa chua chanh leo,Drinks,Sữa chua,M,500,25000,ACTIVE,
+DR-SC-006-L,Sữa chua chanh leo,Drinks,Sữa chua,L,700,30000,ACTIVE,
+DR-SC-007-M,Sữa chua dứa,Drinks,Sữa chua,M,500,25000,ACTIVE,
+DR-SC-007-L,Sữa chua dứa,Drinks,Sữa chua,L,700,30000,ACTIVE,
+DR-SC-008-M,Sữa chua trân châu đường đen,Drinks,Sữa chua,M,500,30000,ACTIVE,
+DR-SC-008-L,Sữa chua trân châu đường đen,Drinks,Sữa chua,L,700,35000,ACTIVE,
+DR-DX-001-M,Matcha đá xay,Drinks,Đồ đá xay,M,500,30000,ACTIVE,Xịt kem
+DR-DX-001-L,Matcha đá xay,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-DX-002-M,Việt quất đá xay,Drinks,Đồ đá xay,M,500,30000,ACTIVE,
+DR-DX-002-L,Việt quất đá xay,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-DX-003-M,Bạc hà đá xay,Drinks,Đồ đá xay,M,500,30000,ACTIVE,
+DR-DX-003-L,Bạc hà đá xay,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-DX-004-M,Socola đá xay,Drinks,Đồ đá xay,M,500,30000,ACTIVE,
+DR-DX-004-L,Socola đá xay,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-DX-005-M,Cacao đá xay,Drinks,Đồ đá xay,M,500,30000,ACTIVE,
+DR-DX-005-L,Cacao đá xay,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-DX-006-M,Dưa lưới đá xay,Drinks,Đồ đá xay,M,500,30000,ACTIVE,
+DR-DX-006-L,Dưa lưới đá xay,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-DX-007-M,Chanh tuyết,Drinks,Đồ đá xay,M,500,30000,ACTIVE,Không kem
+DR-DX-007-L,Chanh tuyết,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-DX-008-M,Sữa chua đánh đá,Drinks,Đồ đá xay,M,500,30000,ACTIVE,
+DR-DX-008-L,Sữa chua đánh đá,Drinks,Đồ đá xay,L,700,35000,ACTIVE,
+DR-CF-001-M,Cafe đen / nâu,Drinks,Cà phê,M,300,25000,ACTIVE,Thay sữa đặc bằng đường = đen
+DR-CF-001-L,Cafe đen / nâu,Drinks,Cà phê,L,500,30000,ACTIVE,
+DR-CF-002-M,Cafe cốt dừa,Drinks,Cà phê,M,500,25000,ACTIVE,Xay cốt dừa
+DR-CF-002-L,Cafe cốt dừa,Drinks,Cà phê,L,700,30000,ACTIVE,
+DR-CF-003-M,Cafe kem trứng,Drinks,Cà phê,M,300,25000,ACTIVE,Bạc xỉu + kem trứng
+DR-CF-003-L,Cafe kem trứng,Drinks,Cà phê,L,500,30000,ACTIVE,
+DR-CF-004-M,Bạc xỉu,Drinks,Cà phê,M,300,25000,ACTIVE,Sữa đặc + sữa tươi + cà phê
+DR-CF-004-L,Bạc xỉu,Drinks,Cà phê,L,500,30000,ACTIVE,
+DR-CF-005-M,Cafe muối,Drinks,Cà phê,M,300,25000,ACTIVE,Nâu đá + kem muối
+DR-CF-005-L,Cafe muối,Drinks,Cà phê,L,500,30000,ACTIVE,
+FD-AV-001,Đùi/cánh gà chiên,Food,Đồ ăn vặt,,,30000,ACTIVE,Chiên 3 lần nhiệt
+FD-AV-002,Xúc xích chiên,Food,Đồ ăn vặt,,,10000,ACTIVE,120 độ
+FD-AV-003,Phô mai que chiên,Food,Đồ ăn vặt,,,10000,ACTIVE,150 độ
+FD-AV-004,Nem chua rán,Food,Đồ ăn vặt,,,25000,ACTIVE,150-160 độ
+FD-AV-005,Khoai tây chiên,Food,Đồ ăn vặt,,,25000,ACTIVE,150-160 độ
+FD-AV-006,Khoai tây lệ phô mai,Food,Đồ ăn vặt,,,25000,ACTIVE,Khoai tây + bột phomai
+FD-AV-007,Khoai lệ phố,Food,Đồ ăn vặt,,,30000,ACTIVE,8 viên 160 độ
+FD-AV-008,Khoai lang kén,Food,Đồ ăn vặt,,,30000,ACTIVE,12 viên 150-160 độ
+FD-AV-009,Cá viên chiên,Food,Đồ ăn vặt,,,25000,ACTIVE,30 viên 150-160 độ
+FD-AV-010,Bò khô,Food,Đồ ăn vặt,,,25000,ACTIVE,80g/đĩa
+FD-AV-011,Khô gà lá chanh,Food,Đồ ăn vặt,,,25000,ACTIVE,80g/đĩa
+FD-AV-012,Xoài dầm bò khô,Food,Đồ ăn vặt,,,25000,ACTIVE,
+FD-AV-013,Lạp xưởng chiên,Food,Đồ ăn vặt,,,15000,ACTIVE,150-160 độ
+FD-AV-014,Hướng dương,Food,Đồ ăn vặt,,,20000,ACTIVE,
+FD-AV-015,Tobokki,Food,Đồ ăn vặt,,,30000,ACTIVE,15 viên + 8 chả + 8 xúc xích
+FD-AV-016-S,Combo ăn vặt nhỏ,Food,Đồ ăn vặt,S,,30000,ACTIVE,
+FD-AV-016-M,Combo ăn vặt vừa,Food,Đồ ăn vặt,M,,60000,ACTIVE,
+FD-AV-016-L,Combo ăn vặt lớn,Food,Đồ ăn vặt,L,,90000,ACTIVE,
+FD-AV-017,Gà viên chiên,Food,Đồ ăn vặt,,,40000,ACTIVE,
+FD-AV-018,Gà viên sốt cay,Food,Đồ ăn vặt,,,40000,ACTIVE,Sốt gà cay riêng
+FD-MC-001,Mỳ cay xúc xích,Food,Mỳ cay,,,35000,ACTIVE,5 xúc xích cắt 3 khúc
+FD-MC-002,Mỳ cay bò,Food,Mỳ cay,,,45000,ACTIVE,4 miếng bò cuốn nấm
+FD-MC-003,Mỳ cay hải sản,Food,Mỳ cay,,,50000,ACTIVE,1 tôm + 1 thanh cua + 1 mực + 4 ngao
+FD-MC-004,Mỳ cay sườn sụn,Food,Mỳ cay,,,45000,ACTIVE,70g sườn sụn
+FD-MC-005,Mỳ cay thập cẩm,Food,Mỳ cay,,,50000,ACTIVE,1 tôm + 2 bò + 4 ngao
+FD-MC-006,Mỳ cay bò xúc xích,Food,Mỳ cay,,,55000,ACTIVE,
+TP-DR-001,Trân châu ngọc trai,Topping,Topping đồ uống,,,6000,ACTIVE,
+TP-DR-002,Trân châu đen,Topping,Topping đồ uống,,,6000,ACTIVE,
+TP-DR-003,Thạch nha đam,Topping,Topping đồ uống,,,6000,ACTIVE,
+TP-DR-004,Thạch con cá,Topping,Topping đồ uống,,,6000,ACTIVE,
+TP-DR-005,Kem cheese,Topping,Topping đồ uống,,,6000,ACTIVE,
+TP-DR-006,Kem trứng,Topping,Topping đồ uống,,,6000,ACTIVE,
+TP-FD-001,Rau (mỳ cay),Topping,Topping mỳ cay,,,6000,ACTIVE,
+TP-FD-002,Ngao (mỳ cay),Topping,Topping mỳ cay,,,6000,ACTIVE,
+TP-FD-003,Xúc xích thêm,Topping,Topping mỳ cay,,,5000,ACTIVE,
+TP-FD-004,Chả cá thêm,Topping,Topping mỳ cay,,,5000,ACTIVE,
+TP-FD-005,Thanh cua thêm,Topping,Topping mỳ cay,,,5000,ACTIVE,
+TP-FD-006,Bò thêm,Topping,Topping mỳ cay,,,10000,ACTIVE,
+TP-FD-007,Tôm thêm,Topping,Topping mỳ cay,,,15000,ACTIVE,
+TP-FD-008,Sườn sụn thêm,Topping,Topping mỳ cay,,,15000,ACTIVE,
+TP-FD-009,Mực thêm,Topping,Topping mỳ cay,,,8000,ACTIVE,
+TP-FD-010,Mỳ thêm,Topping,Topping mỳ cay,,,12000,ACTIVE,

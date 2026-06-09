@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Cup body -->
+  <path d="M14 22 h32 l-3 30 a6 6 0 0 1 -6 6 h-14 a6 6 0 0 1 -6 -6 z" fill="#16a34a"/>
+  <!-- Handle -->
+  <path d="M46 28 q10 0 10 8 t-10 8" fill="none" stroke="#16a34a" stroke-width="3"/>
+  <!-- Leaf -->
+  <path d="M30 8 q-10 6 -8 18 q10 -2 12 -12 q-2 -3 -4 -6 z" fill="#d4af37"/>
+  <!-- Steam -->
+  <path d="M22 16 q2 -4 0 -8 M30 14 q2 -4 0 -8 M38 16 q2 -4 0 -8" fill="none" stroke="#16a34a" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+</svg>

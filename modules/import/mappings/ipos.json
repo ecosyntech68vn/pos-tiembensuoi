@@ -1,0 +1,31 @@
+{
+  "name": "iPOS.vn",
+  "confidence": "low",
+  "note": "Mapping suy đoán dựa trên template phổ biến iPOS. KHÁCH PHẢI verify với CSV thật.",
+  "detect_headers": [
+    "Mã hóa đơn", "Ngày", "Tổng tiền", "Tên món"
+  ],
+  "delimiter": ",",
+  "encoding": "UTF-8",
+  "fields": {
+    "order_no":        ["Mã hóa đơn", "Số hóa đơn", "Mã HĐ"],
+    "created_at":      ["Ngày", "Thời gian", "Ngày tạo"],
+    "customer":        ["Khách hàng"],
+    "product_name":    ["Tên món", "Món", "Sản phẩm"],
+    "qty":             ["SL", "Số lượng"],
+    "unit_price":      ["Đơn giá"],
+    "line_total":      ["Thành tiền"],
+    "discount":        ["Giảm giá"],
+    "total":           ["Tổng tiền", "Tổng cộng"],
+    "payment_method":  ["Thanh toán", "Hình thức TT"],
+    "note":            ["Ghi chú"]
+  },
+  "date_formats": ["DD/MM/YYYY HH:mm", "DD/MM/YYYY", "YYYY-MM-DD HH:mm:ss"],
+  "payment_map": {
+    "Tiền mặt": "cash",
+    "Chuyển khoản": "transfer",
+    "Thẻ": "card",
+    "QR": "qr"
+  },
+  "row_per": "item"
+}

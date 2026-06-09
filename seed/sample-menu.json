@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "source": "Tiệm Bên Suối MENU_BOM_v0.1 — SAFE SUBSET 20 SKU",
+    "generated_at": "2026-06-09 v2 (INTEGER IDs)",
+    "schema_fix": "Đã rebuild với INTEGER IDs khớp schema. Business code (DR-TH-001) ghi trong name [prefix] để trace.",
+    "id_map_products": "1=Trà chanh, 2=Trà chanh leo, 3=Trà cam mật ong, 4=Trà sữa khoai môn, 5=Trà sữa nguyên vị, 6=Hồng trà sữa, 7=Sữa tươi TC ĐĐ, 8=Trà sữa TC ĐĐ, 9=Cafe đen/nâu, 10=Bạc xỉu, 11=Sữa chua việt quất, 12=Matcha đá xay, 13=Socola đá xay, 14=Khoai tây chiên, 15=Đùi/cánh gà chiên, 16=Xúc xích chiên, 17=Mỳ cay hải sản, 18=Mỳ cay xúc xích, 19=Trân châu ngọc trai, 20=Kem cheese topping"
+  },
+  "categories": [
+    { "id": 1, "name": "Trà hoa quả",   "sort_order": 1, "icon": "🍋" },
+    { "id": 2, "name": "Trà sữa",        "sort_order": 2, "icon": "🧋" },
+    { "id": 3, "name": "Best Seller",    "sort_order": 3, "icon": "⭐" },
+    { "id": 4, "name": "Cà phê",         "sort_order": 4, "icon": "☕" },
+    { "id": 5, "name": "Sữa chua",       "sort_order": 5, "icon": "🥛" },
+    { "id": 6, "name": "Đồ đá xay",      "sort_order": 6, "icon": "🍧" },
+    { "id": 7, "name": "Đồ ăn vặt",      "sort_order": 7, "icon": "🍟" },
+    { "id": 8, "name": "Mỳ cay",         "sort_order": 8, "icon": "🍜" },
+    { "id": 9, "name": "Topping",        "sort_order": 9, "icon": "➕" }
+  ],
+  "variant_groups": [
+    { "id": 1, "name": "Size đồ uống", "selection_type": "single", "required": true }
+  ],
+  "variants": [
+    { "id": 1, "group_id": 1, "name": "M (500ml)", "price_modifier": 0 },
+    { "id": 2, "group_id": 1, "name": "L (700ml)", "price_modifier": 5000 }
+  ],
+  "products": [
+    { "id": 1,  "category_id": 1, "name": "[DR-TH-001] Trà chanh",                         "base_price": 15000, "icon": "🍋", "variant_groups": [1] },
+    { "id": 2,  "category_id": 1, "name": "[DR-TH-003] Trà chanh leo",                     "base_price": 25000, "icon": "🍋", "variant_groups": [1] },
+    { "id": 3,  "category_id": 1, "name": "[DR-TH-014] Trà cam mật ong",                   "base_price": 25000, "icon": "🍊", "variant_groups": [1] },
+    { "id": 4,  "category_id": 2, "name": "[DR-TS-001] Trà sữa khoai môn",                 "base_price": 27000, "icon": "🧋", "variant_groups": [1] },
+    { "id": 5,  "category_id": 2, "name": "[DR-TS-002] Trà sữa nguyên vị",                 "base_price": 27000, "icon": "🧋", "variant_groups": [1] },
+    { "id": 6,  "category_id": 2, "name": "[DR-TS-014] Hồng trà sữa",                      "base_price": 30000, "icon": "🧋", "variant_groups": [1] },
+    { "id": 7,  "category_id": 3, "name": "[DR-BS-001] Sữa tươi trân châu đường đen",      "base_price": 30000, "icon": "⭐", "variant_groups": [1] },
+    { "id": 8,  "category_id": 3, "name": "[DR-BS-002] Trà sữa trân châu đường đen",       "base_price": 30000, "icon": "⭐", "variant_groups": [1] },
+    { "id": 9,  "category_id": 4, "name": "[DR-CF-001] Cafe đen / nâu",                    "base_price": 25000, "icon": "☕", "variant_groups": [] },
+    { "id": 10, "category_id": 4, "name": "[DR-CF-004] Bạc xỉu",                           "base_price": 25000, "icon": "☕", "variant_groups": [] },
+    { "id": 11, "category_id": 5, "name": "[DR-SC-001] Sữa chua việt quất",                "base_price": 25000, "icon": "🥛", "variant_groups": [1] },
+    { "id": 12, "category_id": 6, "name": "[DR-DX-001] Matcha đá xay",                     "base_price": 30000, "icon": "🍧", "variant_groups": [1] },
+    { "id": 13, "category_id": 6, "name": "[DR-DX-004] Socola đá xay",                     "base_price": 30000, "icon": "🍧", "variant_groups": [1] },
+    { "id": 14, "category_id": 7, "name": "[FD-AV-005] Khoai tây chiên",                   "base_price": 25000, "icon": "🍟", "variant_groups": [] },
+    { "id": 15, "category_id": 7, "name": "[FD-AV-001] Đùi/cánh gà chiên",                 "base_price": 30000, "icon": "🍗", "variant_groups": [] },
+    { "id": 16, "category_id": 7, "name": "[FD-AV-002] Xúc xích chiên",                    "base_price": 10000, "icon": "🌭", "variant_groups": [] },
+    { "id": 17, "category_id": 8, "name": "[FD-MC-003] Mỳ cay hải sản",                    "base_price": 50000, "icon": "🍜", "variant_groups": [] },
+    { "id": 18, "category_id": 8, "name": "[FD-MC-001] Mỳ cay xúc xích",                   "base_price": 35000, "icon": "🍜", "variant_groups": [] },
+    { "id": 19, "category_id": 9, "name": "[TP-DR-001] Trân châu ngọc trai",               "base_price": 6000,  "icon": "⚪", "variant_groups": [] },
+    { "id": 20, "category_id": 9, "name": "[TP-DR-005] Kem cheese (topping)",              "base_price": 6000,  "icon": "🧀", "variant_groups": [] }
+  ]
+}
