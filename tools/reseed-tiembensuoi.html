@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>🔄 Làm tươi POS Cafe — Tiệm Bên Suối</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/sql-wasm.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, sans-serif; background: linear-gradient(135deg,#f0fdf4,#dcfce7); margin: 0; padding: 32px 16px; min-height: 100vh; color: #1e293b; }
+  .container { max-width: 720px; margin: 0 auto; background: #fff; padding: 32px; border-radius: 16px; box-shadow: 0 10px 30px rgba(15,23,42,0.08); }
+  h1 { color: #15803d; margin-top: 0; font-size: 24px; }
+  p { color: #475569; line-height: 1.6; }
+  .danger { background: #fef2f2; border: 1px solid #fecaca; padding: 12px 16px; border-radius: 8px; color: #991b1b; margin: 16px 0; }
+  .btn { padding: 14px 28px; font-size: 16px; font-weight: 600; border-radius: 10px; border: 0; cursor: pointer; transition: all 0.15s; }
+  .btn-primary { background: #15803d; color: #fff; }
+  .btn-primary:hover { background: #166534; }
+  .btn-primary:disabled { background: #94a3b8; cursor: not-allowed; }
+  .btn-back { background: #e2e8f0; color: #1e293b; margin-right: 8px; }
+  .log { background: #0f172a; color: #94a3b8; padding: 16px; border-radius: 8px; font-family: ui-monospace, monospace; font-size: 13px; max-height: 320px; overflow-y: auto; margin: 20px 0; white-space: pre-wrap; }
+  .log .ok { color: #34d399; }
+  .log .err { color: #f87171; }
+  .log .info { color: #60a5fa; }
+  .summary { background: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 10px; margin: 16px 0; display: none; }
+  .summary.show { display: block; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 12px; }
+  .stat { background: #fff; padding: 12px; border-radius: 8px; text-align: center; }
+  .stat .num { font-size: 24px; font-weight: 800; color: #15803d; }
+  .stat .label { font-size: 12px; color: #64748b; margin-top: 4px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🔄 Làm tươi POS Cafe — Tiệm Bên Suối</h1>
+  <p>Tool này <b>xoá sạch</b> dữ liệu POS hiện tại trong browser và <b>nạp lại đầy đủ</b> từ CSV:</p>
+  <ul>
+    <li>114 sản phẩm (98 món + 16 topping)</li>
+    <li>119 nguyên liệu (108 NVL + 11 bán thành phẩm)</li>
+    <li>900 công thức per-size (M/L/null)</li>
+    <li>Branch tự đổi tên thành "Tiệm Bên Suối"</li>
+  </ul>
+  <div class="danger">⚠️ <b>Lưu ý</b>: thao tác này xoá toàn bộ <b>orders, kho cũ, lịch sử</b> trong browser hiện tại. Chỉ dùng khi POS bị mất sản phẩm hoặc khi chuyển sang máy mới chưa có data.</div>
+
+  <div>
+    <button class="btn btn-back" onclick="history.length>1?history.back():(location.href='../')">← Quay lại POS</button>
+    <button id="goBtn" class="btn btn-primary" onclick="startReseed()">🚀 Bắt đầu nạp lại 114 SKU</button>
+  </div>
+
+  <div id="summary" class="summary">
+    <h3 style="margin-top:0;color:#15803d;">✅ Hoàn tất — POS sẵn sàng</h3>
+    <div class="grid">
+      <div class="stat"><div class="num" id="sProds">0</div><div class="label">Sản phẩm</div></div>
+      <div class="stat"><div class="num" id="sIngs">0</div><div class="label">NVL</div></div>
+      <div class="stat"><div class="num" id="sRecs">0</div><div class="label">Công thức</div></div>
+      <div class="stat"><div class="num" id="sBlob">0</div><div class="label">KB blob</div></div>
+    </div>
+    <div style="text-align:center;margin-top:16px;">
+      <a href="../" class="btn btn-primary" style="text-decoration:none;display:inline-block;">→ Vào POS Bán hàng</a>
+    </div>
+  </div>
+
+  <div id="log" class="log" style="display:none;"></div>
+</div>
+
+<script>
+const DB_NAME = 'ecosyntech-pos-tbs';
+const STORE = 'sqlite';
+const KEY = 'main.db';
+const BASE = '../';
+
+const logEl = document.getElementById('log');
+const goBtn = document.getElementById('goBtn');
+function log(msg, cls) {
+  logEl.style.display = 'block';
+  const line = document.createElement('div');
+  line.className = cls || '';
+  line.textContent = '[' + new Date().toLocaleTimeString() + '] ' + msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+async function fetchCSV(name) {
+  const r = await fetch(BASE + 'data/' + name + '?cb=' + Date.now(), { cache: 'reload' });
+  const t = await r.text();
+  const lines = t.split(/\r?\n/).filter(l => l.trim());
+  const hdr = lines[0].split(',').map(s => s.trim());
+  return lines.slice(1).map(line => {
+    const cells = line.split(',');
+    const obj = {};
+    hdr.forEach((h, i) => obj[h] = cells[i] !== undefined ? cells[i].trim() : '');
+    return obj;
+  });
+}
+
+function idbDelete(name) {
+  return new Promise(resolve => {
+    const req = indexedDB.deleteDatabase(name);
+    req.onsuccess = () => resolve('deleted');
+    req.onerror = () => resolve('error');
+    req.onblocked = () => resolve('blocked');
+    setTimeout(() => resolve('timeout'), 3000);
+  });
+}
+
+function idbPut(blob) {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(STORE);
+    req.onsuccess = () => {
+      const idb = req.result;
+      const tx = idb.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(blob, KEY);
+      tx.oncomplete = () => { idb.close(); resolve(); };
+      tx.onerror = () => { idb.close(); reject(tx.error); };
+    };
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function startReseed() {
+  goBtn.disabled = true;
+  goBtn.textContent = '⏳ Đang nạp...';
+  try {
+    log('Bắt đầu...', 'info');
+
+    log('1/7 Đợi sql.js WASM tải xong...');
+    const SQL = await window.initSqlJs({ locateFile: f => 'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/' + f });
+
+    log('2/7 Tải 4 CSV (menu + ingredients + recipes + toppings)...');
+    const [menuRows, ingRows, recRows, topRows] = await Promise.all([
+      fetchCSV('00_MENU.csv'), fetchCSV('01_INGREDIENTS.csv'), fetchCSV('02_RECIPES_BOM.csv'), fetchCSV('04_TOPPINGS.csv')
+    ]);
+    log('   Menu: ' + menuRows.length + ', NVL: ' + ingRows.length + ', Recipes: ' + recRows.length + ', Toppings: ' + topRows.length);
+
+    log('3/7 Tải schema...');
+    const schemaText = await fetch(BASE + 'modules/core/db-schema.sql?cb=' + Date.now()).then(r => r.text());
+
+    log('4/7 Tạo DB fresh + áp schema...');
+    const db = new SQL.Database();
+    db.exec(schemaText);
+
+    const branchId = 1, now = Date.now();
+    db.run("INSERT INTO branches (id, name, address, phone, slogan, tax_rate, round_to, created_at) VALUES (?,?,?,?,?,?,?,?)",
+      [branchId, 'Tiệm Bên Suối', 'Đông Giang, Tân Thanh, Tuyên Quang', '0566.24.24.24', 'Cafe – Trà sữa – Mỳ cay Bên Suối', 0, 1000, now]);
+
+    // PIN owner 1234, staff 5678
+    async function hashPin(pin, bid) {
+      const enc = new TextEncoder();
+      const buf = await crypto.subtle.digest('SHA-256', enc.encode(pin + ':' + bid));
+      return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+    }
+    db.run("INSERT INTO users (branch_id, name, pin_hash, role, active, created_at) VALUES (?,?,?,?,1,?)", [branchId, 'Chủ quán', await hashPin('1234', branchId), 'owner', now]);
+    db.run("INSERT INTO users (branch_id, name, pin_hash, role, active, created_at) VALUES (?,?,?,?,1,?)", [branchId, 'Nhân viên 1', await hashPin('5678', branchId), 'staff', now]);
+
+    const catMap = {'Trà hoa quả':1,'Trà sữa':2,'Best Seller':3,'Trà kem cheese':4,'Sữa chua':5,'Đồ đá xay':6,'Cà phê':7,'Đồ ăn vặt':8,'Mỳ cay':9,'Topping đồ uống':10,'Topping mỳ cay':11};
+    const catIcons = {1:'🍋',2:'🧋',3:'⭐',4:'🧀',5:'🥛',6:'🍧',7:'☕',8:'🍟',9:'🍜',10:'➕',11:'➕'};
+    Object.entries(catMap).forEach(([n, id], i) => db.run("INSERT INTO categories (id, branch_id, name, sort_order, icon) VALUES (?,?,?,?,?)", [id, branchId, n, i+1, catIcons[id]]));
+    db.run("INSERT INTO variant_groups (id, name, selection_type, required) VALUES (?,?,?,?)", [1,'Size','single',1]);
+    db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [1,1,'M',0]);
+    db.run("INSERT INTO variants (id, group_id, name, price_modifier) VALUES (?,?,?,?)", [2,1,'L',5000]);
+
+    log('5/7 Insert 114 products + 119 ingredients + 900 recipes...');
+    const conv = u => { u = (u||'').toLowerCase(); if (u==='kg') return {unit:'gram', mult:1000}; if (u==='lít'||u==='l') return {unit:'ml', mult:1000}; return {unit: u.replace(/[^\w]/g,'')||'unit', mult:1}; };
+    const productMap = new Map(); let pid = 0; const productList = [];
+    menuRows.forEach(row => {
+      if (row.status !== 'ACTIVE' || row.category_main === 'Topping') return;
+      const m = row.item_code.match(/^(.+?)-([ML]|S)$/);
+      const baseCode = m ? m[1] : row.item_code;
+      const size = m ? m[2] : null;
+      let p = productMap.get(baseCode);
+      if (!p) { pid++; p = {id:pid, base_code:baseCode, name:row.name_vn, cat:row.category_sub, sizes:{}, single:null}; productMap.set(baseCode, p); productList.push(p); }
+      if (size) p.sizes[size] = parseInt(row.price_sell_vnd,10);
+      else p.single = parseInt(row.price_sell_vnd,10);
+    });
+    productList.forEach((p, i) => {
+      let bp, hv;
+      if (p.sizes.M || p.sizes.L) { bp = p.sizes.M || p.sizes.L; hv = !!(p.sizes.M && p.sizes.L); }
+      else { bp = p.single || 0; hv = false; }
+      db.run("INSERT INTO products (id, branch_id, category_id, name, base_price, icon, active, sort_order, created_at) VALUES (?,?,?,?,?,?,1,?,?)", [p.id, branchId, catMap[p.cat] || ({'Đồ uống nóng':7}[p.cat]) || 8, '['+p.base_code+'] '+p.name, bp, '', i, now]);
+      if (hv) db.run("INSERT INTO product_variant_groups (product_id, group_id) VALUES (?,?)", [p.id, 1]);
+    });
+    topRows.forEach((t, i) => {
+      if (t.status !== 'ACTIVE') return;
+      pid++;
+      db.run("INSERT INTO products (id, branch_id, category_id, name, base_price, icon, active, sort_order, created_at) VALUES (?,?,?,?,?,?,1,?,?)", [pid, branchId, t.applies_to_category==='Drinks'?10:11, '['+t.topping_code+'] '+t.name_vn, parseInt(t.price_sell_vnd,10), '', productList.length + i, now]);
+      productMap.set(t.topping_code, {id: pid});
+    });
+    const ingCodeToId = new Map(); let iid = 0;
+    ingRows.forEach(row => {
+      if (row.status !== 'ACTIVE') return;
+      iid++;
+      const c = conv(row.unit);
+      const sm = (parseInt(row.stock_min,10)||100) * c.mult;
+      db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)", [iid, branchId, '['+row.ingredient_code+'] '+row.name_vn, c.unit, Math.max(sm*5,1000), sm, parseInt(row.unit_cost_vnd,10)||0, row.supplier||'']);
+      ingCodeToId.set(row.ingredient_code, iid);
+    });
+    [['IG-SF-001','Cốt trà nhài','ml',7,5000,1000],['IG-SF-002','Cốt hồng trà','ml',7,5000,1000],['IG-SF-003','Cốt trà ô long','ml',10,2000,500],['IG-SF-004','Đường nước','ml',15,10000,2000],['IG-SF-005','Cà phê pha phin','ml',100,2000,500],['IG-SF-006','Trân châu đường đen','gram',110,3000,500],['IG-SF-007','Cốt trà sen','ml',30,1500,300],['IG-SF-008','Sốt mỳ cay','ml',80,3000,500],['IG-SF-009','Kem cheese','ml',180,1500,300],['IG-SF-010','Kem trứng','ml',200,1000,200],['IG-SF-011','Kem xịt','ml',150,1500,300]].forEach(([c,n,u,co,s,m]) => { iid++; db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)", [iid, branchId, '['+c+'] '+n, u, s, m, co, 'Bán TP']); ingCodeToId.set(c, iid); });
+    const productCodeToId = new Map();
+    productMap.forEach((p, c) => productCodeToId.set(c, p.id));
+    const remap = c => { let m = c.match(/^DR-TC-(\d+)(-([ML]))?$/); if (m) return 'DR-TH-'+m[1]+(m[2]||''); m = c.match(/^DR-MN-(\d+)(-([ML]))?$/); if (m) return 'DR-BS-'+m[1]+(m[2]||''); return c; };
+    const seen = new Set();
+    recRows.forEach(row => {
+      if (!row.item_code) return;
+      const r2 = remap(row.item_code); const m = r2.match(/^(.+?)-([ML])$/);
+      const baseCode = m?m[1]:r2; const size = m?m[2]:null;
+      const pId = productCodeToId.get(baseCode); const iId = ingCodeToId.get(row.ingredient_code);
+      if (!pId || !iId) return;
+      let qty = parseFloat(row.qty)||0; if (qty<=0) return;
+      const ru = (row.unit||'').toLowerCase(); if (ru==='lít'||ru==='l'||ru==='kg') qty *= 1000;
+      const k = pId+'|'+iId+'|'+(size||''); if (seen.has(k)) return; seen.add(k);
+      db.run("INSERT OR IGNORE INTO recipes (product_id, ingredient_id, qty_per_unit, variant_filter) VALUES (?,?,?,?)", [pId, iId, qty, size]);
+    });
+    topRows.forEach(t => {
+      if (t.status !== 'ACTIVE') return;
+      const pId = productCodeToId.get(t.topping_code); const iId = ingCodeToId.get(t.ingredient_ref);
+      if (!pId || !iId) return;
+      let qty = parseFloat(t.qty_default)||0; if (qty<=0) return;
+      const k = pId+'|'+iId+'|'; if (seen.has(k)) return; seen.add(k);
+      db.run("INSERT OR IGNORE INTO recipes (product_id, ingredient_id, qty_per_unit, variant_filter) VALUES (?,?,?,?)", [pId, iId, qty, null]);
+    });
+
+    const pcount = db.exec("SELECT COUNT(*) AS n FROM products")[0].values[0][0];
+    const icount = db.exec("SELECT COUNT(*) AS n FROM ingredients")[0].values[0][0];
+    const rcount = db.exec("SELECT COUNT(*) AS n FROM recipes")[0].values[0][0];
+    log('   ✓ Products: ' + pcount + ' | Ingredients: ' + icount + ' | Recipes: ' + rcount, 'ok');
+
+    log('6/7 Xoá IDB cũ + ghi blob mới (await transaction.oncomplete)...');
+    const blob = db.export();
+    db.close();
+    await idbDelete(DB_NAME);
+    await idbPut(blob);
+
+    log('7/7 Verify blob đã ghi đĩa...');
+    await new Promise(r => setTimeout(r, 1500));
+    const verified = await new Promise(resolve => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onsuccess = () => {
+        const tx = req.result.transaction(STORE, 'readonly');
+        const g = tx.objectStore(STORE).get(KEY);
+        g.onsuccess = () => { resolve(g.result); req.result.close(); };
+      };
+    });
+
+    const sql2 = await window.initSqlJs({ locateFile: f => 'https://cdn.jsdelivr.net/npm/sql.js@1.10.3/dist/' + f });
+    const vdb = new sql2.Database(new Uint8Array(verified));
+    const v = {
+      p: vdb.exec("SELECT COUNT(*) AS n FROM products")[0].values[0][0],
+      i: vdb.exec("SELECT COUNT(*) AS n FROM ingredients")[0].values[0][0],
+      r: vdb.exec("SELECT COUNT(*) AS n FROM recipes")[0].values[0][0]
+    };
+    vdb.close();
+    log('   ✓ Verify đĩa: ' + v.p + ' products, ' + v.i + ' ingredients, ' + v.r + ' recipes (blob ' + (verified.byteLength/1024).toFixed(1) + ' KB)', 'ok');
+
+    log('🎉 HOÀN TẤT — Mở POS Bán hàng để dùng menu mới.', 'ok');
+
+    document.getElementById('sProds').textContent = v.p;
+    document.getElementById('sIngs').textContent = v.i;
+    document.getElementById('sRecs').textContent = v.r;
+    document.getElementById('sBlob').textContent = (verified.byteLength/1024).toFixed(1);
+    document.getElementById('summary').classList.add('show');
+    goBtn.style.display = 'none';
+
+  } catch (e) {
+    log('❌ LỖI: ' + e.message, 'err');
+    console.error(e);
+    goBtn.disabled = false;
+    goBtn.textContent = '🔁 Thử lại';
+  }
+}
+</script>
+</body>
+</html>
