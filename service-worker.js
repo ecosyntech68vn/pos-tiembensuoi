@@ -4,7 +4,7 @@
 // ============================================================================
 // 2026-06-10 v9: thêm kiotviet-pull.js (index.html load nhưng không cache → offline chết),
 // 4 file data/*.csv (db.js seed lần đầu cần), branch-preset config.
-const CACHE = 'pos-cafe-v15'; // v15 2026-06-10: FIX in bill trắng (no-print trên backdrop), sửa tên/mã nguyên liệu trong Kho
+const CACHE = 'pos-cafe-v16'; // v16 2026-06-10: fix nước lọc ×1000 (data+seed+migration v5), sidebar mint, đơn giá quy đổi kg/lít đúng
 const CORE_ASSETS = [
   './',
   './index.html',

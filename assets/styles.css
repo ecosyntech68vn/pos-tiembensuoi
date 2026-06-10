@@ -950,6 +950,14 @@ body {
     radial-gradient(900px 480px at 0% 100%, color-mix(in srgb, #4ade80 10%, transparent), transparent 55%),
     var(--bg-body, #f6fdf9);
 }
+/* Sidebar + menu: nền xanh mint nhạt cho nổi khối điều hướng */
+.sidebar {
+  background: linear-gradient(180deg, #eefdf5 0%, #e6fbf4 55%, #ddf7ee 100%);
+  border-right: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.nav-item { color: #134e3a; font-weight: 500; }
+.nav-item:hover { background: color-mix(in srgb, var(--primary) 13%, #fff); }
+
 /* Nav active: gradient lá → teal, chữ trắng — nhận diện thương hiệu */
 .nav-item.active {
   background: linear-gradient(120deg, var(--primary), #0d9488);

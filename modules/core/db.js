@@ -330,19 +330,33 @@
       productMap.forEach((p, code) => productCodeToId.set(code, p.id));
 
       // Ingredients (108 from CSV + 11 IG-SF semi-finished)
+      // 2026-06-10: chuẩn hoá đơn vị kho về gram/ml (kg→gram ×1000, lít→ml ×1000).
+      // Đơn giá CHIA tương ứng (đ/kg → đ/gram) — tool reseed cũ quên chia làm giá kho sai ×1000.
+      const convU = (u) => {
+        u = (u || '').toLowerCase();
+        if (u === 'kg') return { unit: 'gram', mult: 1000 };
+        if (u === 'lít' || u === 'l' || u === 'lit') return { unit: 'ml', mult: 1000 };
+        return { unit: u.replace(/[^\w]/g, '') || 'unit', mult: 1 };
+      };
       const ingCodeToId = new Map();
+      const ingMult = new Map(); // code -> mult (để nhân qty recipe cùng hệ đơn vị)
       let iid = 0;
       ingRows.forEach(row => {
         if (row.status !== 'ACTIVE') return;
         iid++;
+        const c = convU(row.unit);
+        const minRaw = parseInt(row.stock_min, 10) || 100;
+        const min = minRaw * c.mult;
+        const cost = (parseInt(row.unit_cost_vnd, 10) || 0) / c.mult;
         db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)",
           [iid, branchId, '[' + row.ingredient_code + '] ' + row.name_vn,
-           (row.unit || '').replace(/[^\w]/g, '') || 'unit',
-           Math.max(5000, parseInt(row.stock_min, 10) * 5 || 1000),
-           parseInt(row.stock_min, 10) || 100,
-           parseInt(row.unit_cost_vnd, 10) || 0,
+           c.unit,
+           Math.max(5000, min * 5),
+           min,
+           Math.round(cost * 100) / 100,
            row.supplier || '']);
         ingCodeToId.set(row.ingredient_code, iid);
+        ingMult.set(row.ingredient_code, c.mult);
       });
       const sfDefs = [['IG-SF-001','Cốt trà nhài','ml',7,5000,1000],['IG-SF-002','Cốt hồng trà','ml',7,5000,1000],['IG-SF-003','Cốt trà ô long','ml',10,2000,500],['IG-SF-004','Đường nước pha sẵn','ml',15,10000,2000],['IG-SF-005','Cà phê pha phin','ml',100,2000,500],['IG-SF-006','Trân châu đường đen ủ','gram',110,3000,500],['IG-SF-007','Cốt trà sen','ml',30,1500,300],['IG-SF-008','Sốt mỳ cay base','ml',80,3000,500],['IG-SF-009','Kem cheese đánh sẵn','ml',180,1500,300],['IG-SF-010','Kem trứng đánh sẵn','ml',200,1000,200],['IG-SF-011','Kem xịt whipping','ml',150,1500,300]];
       sfDefs.forEach(([code, n, u, c, s, m]) => {
@@ -370,7 +384,10 @@
         const pId = productCodeToId.get(baseCode);
         const iId = ingCodeToId.get(row.ingredient_code);
         if (!pId || !iId) return;
-        const qty = parseFloat(row.qty) || 0;
+        let qty = parseFloat(row.qty) || 0;
+        // Quy đổi cùng hệ đơn vị với kho: recipe ghi kg/lít → ×1000 thành gram/ml
+        const ru = (row.unit || '').toLowerCase();
+        if (ru === 'kg' || ru === 'lít' || ru === 'l' || ru === 'lit') qty *= 1000;
         if (qty <= 0) return;
         const key = pId + '|' + iId + '|' + (size || '');
         if (seenRec.has(key)) return;
@@ -435,6 +452,19 @@
         }
       }
     } catch (e) { /* bảng variants có thể trống — bỏ qua */ }
+    // 2026-06-10 v5: CSV cũ ghi nước lọc qty=ml nhưng unit='lít' → reseed nhân oan ×1000
+    // (hiển thị "120000ml Nước lọc"). Chia lại cho DB đang chạy. Idempotent: chỉ chạm
+    // dòng >= 10000 (10 lít/ly — chắc chắn sai).
+    try {
+      const ingW = exec("SELECT id FROM ingredients WHERE name LIKE '%IG-OT-002%' LIMIT 1");
+      if (ingW.length) {
+        const bad = exec("SELECT COUNT(*) AS n FROM recipes WHERE ingredient_id=? AND qty_per_unit >= 10000", [ingW[0].id])[0].n;
+        if (bad > 0) {
+          db.run("UPDATE recipes SET qty_per_unit = qty_per_unit / 1000.0 WHERE ingredient_id=? AND qty_per_unit >= 10000", [ingW[0].id]);
+          console.warn('[v5] Fix nước lọc ×1000: đã chia lại', bad, 'dòng recipe');
+        }
+      }
+    } catch (e) { /* ignore */ }
     await persist();
     global.dbInstance = db;
     return db;

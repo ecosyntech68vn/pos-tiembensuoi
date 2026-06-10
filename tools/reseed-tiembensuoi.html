@@ -193,7 +193,8 @@ async function startReseed() {
       iid++;
       const c = conv(row.unit);
       const sm = (parseInt(row.stock_min,10)||100) * c.mult;
-      db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)", [iid, branchId, '['+row.ingredient_code+'] '+row.name_vn, c.unit, Math.max(sm*5,1000), sm, parseInt(row.unit_cost_vnd,10)||0, row.supplier||'']);
+      // 2026-06-10 FIX: chia đơn giá theo hệ số quy đổi (đ/kg → đ/gram) — trước quên chia làm giá kho sai ×1000
+      db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)", [iid, branchId, '['+row.ingredient_code+'] '+row.name_vn, c.unit, Math.max(sm*5,1000), sm, Math.round(((parseInt(row.unit_cost_vnd,10)||0)/c.mult)*100)/100, row.supplier||'']);
       ingCodeToId.set(row.ingredient_code, iid);
     });
     [['IG-SF-001','Cốt trà nhài','ml',7,5000,1000],['IG-SF-002','Cốt hồng trà','ml',7,5000,1000],['IG-SF-003','Cốt trà ô long','ml',10,2000,500],['IG-SF-004','Đường nước','ml',15,10000,2000],['IG-SF-005','Cà phê pha phin','ml',100,2000,500],['IG-SF-006','Trân châu đường đen','gram',110,3000,500],['IG-SF-007','Cốt trà sen','ml',30,1500,300],['IG-SF-008','Sốt mỳ cay','ml',80,3000,500],['IG-SF-009','Kem cheese','ml',180,1500,300],['IG-SF-010','Kem trứng','ml',200,1000,200],['IG-SF-011','Kem xịt','ml',150,1500,300]].forEach(([c,n,u,co,s,m]) => { iid++; db.run("INSERT INTO ingredients (id, branch_id, name, unit, stock_current, stock_min, cost_per_unit, supplier, active) VALUES (?,?,?,?,?,?,?,?,1)", [iid, branchId, '['+c+'] '+n, u, s, m, co, 'Bán TP']); ingCodeToId.set(c, iid); });
