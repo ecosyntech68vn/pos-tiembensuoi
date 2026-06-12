@@ -9,7 +9,7 @@
 (function (global) {
   'use strict';
 
-  const DB_NAME = 'ecosyntech-pos-tbs';  // 2026-06-09: switched to fresh DB name (old IDB lock workaround)
+  const DB_NAME = 'pos-tiembensuoi-v1';  // 2026-06-09: switched to fresh DB name (old IDB lock workaround)
   const STORE = 'sqlite';
   const KEY = 'main.db';
   // Auto-detect base URL from db.js script location (works from any HTML, any folder)
@@ -67,8 +67,8 @@
   // when blob FULLY written to disk, not just queued).
   let persistTimer = null;
   let persistInFlight = null;  // Promise — caller can await to ensure write done.
-  const PERSIST_LOCK_KEY = 'ecosyntech-pos.persist-lock';
-  const PERSIST_VER_KEY = 'ecosyntech-pos.persist-version';
+  const PERSIST_LOCK_KEY = 'pos-tiembensuoi.persist-lock';
+  const PERSIST_VER_KEY = 'pos-tiembensuoi.persist-version';
   function acquireLock() {
     const lockTs = Date.now().toString();
     const existing = localStorage.getItem(PERSIST_LOCK_KEY);
