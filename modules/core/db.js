@@ -432,6 +432,7 @@
     } else {
       db = new SQL.Database();
       await applySchema();
+      runMigrations();
       const seeded = await seedIfEmpty();
       EventBus.emit('db:loaded', { fromStorage: false, seeded });
     }
